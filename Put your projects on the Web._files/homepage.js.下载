@@ -1,0 +1,4616 @@
+Cargo = window.Cargo || {}; // Edit
+
+var __testing_live__ = false;
+
+// STAGING PIDs
+if (__cargo_context__ === 'staging' && __testing_live__ === true) {
+	var pid_list = {
+
+		home_page: 10902930,
+		// home_set: 9118965,
+		// home_mobile: 9240868,
+
+		global_header: 17969640,
+		footer: 9000737,
+		
+		templates_page: 8990445,
+		fonts_page: 9004992,
+		for_sale: 11974388,
+		nonprofits: 17969648,
+		students: 18919374,
+		blog: 9146308,
+		blog_signup: 9146309,
+
+		selections_set: 9146424,
+		selections_header: 9128720,
+
+		sites_in_use: 9145893,
+		sites_in_use_page: 12769473,
+		sites_in_use_header: 9145894,
+		sites_in_use_set: 9145893,
+		home_in_use: 17969645,
+		home_in_use_set: 17970109,
+		in_use_guide: 18811568,
+		in_use_guide_overview: 18814709,
+		in_use_graphic_design: 18852260,
+
+		domain_search: [8981411, 9193227],
+
+		mixes_set: 9145781,
+		useful_music: 9145780,
+		useful_music_post: 9145781,
+	}
+} else {
+// LIVE PIDs
+	var pid_list = {
+
+		home_page: 18940799,
+		// home_set: 9118965,
+		// home_mobile: 18940803,
+
+		global_header: 19147043,
+		footer: 19157590,
+
+		// templates_page: 19147119,
+		// templates_new: 21688739,
+		templates_page: 21688739,
+		fonts_page: 19157222,
+		for_sale: 11974388,
+		nonprofits: 11145499,
+		students: 18919374,
+		blog: 9146308,
+		blog_signup: 9146309,
+		jobs: 21704413,
+
+		selections_set: 9146424,
+		selections_header: 9128720,
+		
+		sites_in_use: 9145893,
+		sites_in_use_page: 12769473,
+		sites_in_use_header: 9145894,
+		sites_in_use_set: 9145893,
+		home_in_use: 18940578,
+		home_in_use_set: 17970109,
+		in_use_guide: 18811568,
+		in_use_guide_overview: 18814709,
+		in_use_graphic_design: 18852260,
+
+		domain_search: [8981411, 18959818, 9193227],
+		
+		mixes_set: 9145781,
+		useful_music: 9145780,
+		useful_music_post: 9145781,
+		
+	}
+}
+
+
+
+
+Cargo.Homepage = {
+	// Thumbnail Filtering (Sites in Use) Flags
+	thumbnail_order_count: 4,
+	thumb_sort_by_date: false,
+	logged_in: false
+
+};
+
+
+/***************************
+	REDIRECTS
+	There are some google results and inbound links to old pages
+***************************/
+// redirect /Tutorials and /Basics to the Support page
+if (window.location.pathname.toLowerCase() == '/tutorials' || window.location.pathname.toLowerCase() == '/basics') {
+	window.location.href = 'https://support.cargo.site';
+}
+
+
+/***************************
+	QUERY STRINGS
+	At the top so they are available a.s.a.p.
+***************************/
+
+if (document.location.search == '?c2_start') {
+	Cargo.Homepage.is_c1_signup = true;
+}
+if (document.location.search == '?sort=date_added') {
+	Cargo.Homepage.thumb_sort_by_date = true;
+}
+if (document.location.search == '?filter=new') {
+	Cargo.Homepage.template_filter = 'new';
+	setTimeout(function(){
+		var newurl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?filter=new';
+		window.history.pushState({path:newurl},'',newurl);
+	}, 250)
+}
+
+
+
+
+
+/***************************
+	REQUIRE JS SETUP
+***************************/
+// re-defined require path for domains since they are being required outside of the admin
+requirejs.config({
+	paths: {
+		'domains': '/_jsapps/domains'
+	}
+});
+
+// setup base domain path
+// this is a fallback from the cargo.site switchover
+if (/collective/.test(window.location.host)) {
+	var homepageBaseDomain = 'cargocollective.com'
+} else {
+	homepageBaseDomain = 'cargo.site';
+}
+
+
+
+
+Cargo.Homepage.Overrides = {
+	setup: function() {
+		this.unbindDefaultShortcuts();
+	},
+	unbindDefaultShortcuts: function() {
+		// Remove some shortcuts that are problematic
+		// Random / Right / Left all allow navigation into sets and pages (sites in use for example) 
+		// that should not be visible unformatted
+		Cargo.Core.KeyboardShortcut.Remove('R');
+		Cargo.Core.KeyboardShortcut.Remove('Right');
+		Cargo.Core.KeyboardShortcut.Remove('K');
+		Cargo.Core.KeyboardShortcut.Remove('Left');
+		Cargo.Core.KeyboardShortcut.Remove('J');
+	}
+}
+
+
+/***************************
+	HELPERS
+	Extended helpers 
+***************************/
+
+Cargo.Homepage.Helpers = {
+
+	// determines if we're in the admin
+	// this exists in Cargo, however may be needed before Cargo is available
+	isAdminEdit: function() {
+		var is_admin_path = (/\/adminedit/.test(document.location.pathname) || /\/admin/.test(document.location.pathname));
+		try {
+			var has_parent = (parent != window && typeof parent.Cargo == "object");
+			// has_editor is commented out — because we load the part of the admin for Domain Search to work on the homepage
+			// var has_editor = Cargo.Editor != undefined;
+			return (is_admin_path || has_parent);
+
+		} catch (e) {
+			return false;
+		}
+	},
+
+	// Returns true/false — this is also available in Cargo, but may not be there soon enough
+	isMobileWidth: function() {
+		return window.innerWidth < 770;
+	},
+
+	// Returns true/false — this is also available in Cargo, but may not be there soon enough
+	isIOS: function() {
+		if (navigator.userAgent.match(/i(Phone|Pod|Pad)/i)) {
+			return true;	
+		} else {
+			return false;
+		}
+	},
+
+	isSafari: function (){
+		return (navigator.userAgent.indexOf('Safari') != -1 && navigator.userAgent.indexOf('Chrome') == -1);
+	},
+
+	isEdge : function() {
+		return /Edge/.test(navigator.userAgent);
+	},
+
+	// Returns true/false — this is also available in Cargo, but may not be there soon enough
+	// This is to determine if we are in 'web view' safari (or 'in app' safari — when you click on an instagram link for example)
+	isIOSWebView: function() {
+	    // http://stackoverflow.com/questions/4460205/detect-ipad-iphone-webview-via-javascript
+	    var standalone = window.navigator.standalone,
+	        userAgent = window.navigator.userAgent.toLowerCase(),
+	        safari = /safari/.test( userAgent ),
+	        ios = /iphone|ipod|ipad/.test( userAgent );
+	     if( ios ) {
+	        if ( !standalone && safari ) {
+	            //browser
+	            return false;
+	        } else if ( standalone && !safari ) {
+	            //standalone
+	            return false;
+	        } else if ( !standalone && !safari ) {
+	            //uiwebview
+	            return true;
+	        };
+	    }
+	     return false;
+	},
+
+	// Pass through a model and the name of Set to see if the page belongs to it
+	// Will recurse up to see if it is nested and returns a BOOL
+	hasParentSetByName: function(model, name) {
+		var title = model.get('title');
+		var set_id = model.get('set_id');
+
+		// if the title = the name we're looking for — then we're done
+		if (title == name) {
+			return true;
+		}
+
+		// if there is a parent set, let's get that title
+		if (set_id !== 0 && set_id !== undefined && set_id !== '') {
+			// if there is a set_id — we should have the model in scaffolding alraedy — go get it
+			var parent_set_model = Cargo.Collection.Scaffolding.getContentOrPageModelByPid(set_id)
+			
+			// if we do have it — see if it will return true
+			return this.hasParentSetByName(parent_set_model, name);
+
+		}
+
+		// if there was no parent set — get out of here
+		return false;
+	},
+
+
+
+}
+
+
+
+
+
+
+/***************************
+	BLOG Pages
+	This runs for every page initialized inside the /Blog set
+	Mostly to reformat older pages that have different markup than more current ones
+***************************/
+
+Cargo.Homepage.BlogPage = {
+
+
+	setup: function(view) {
+		var _this = this;
+		this.indicateLegacyPosts(view);
+		this.reBorderStaffPick(view);
+		this.removeDoubleBorder(view);
+		this.wrapStaffPick(view);
+
+		if (!Cargo.Homepage.Helpers.isAdminEdit()) {
+			var current_location = window.location.href;
+			current_location = current_location.split('https://cargo.site/');
+
+			var anchor = $('a[href="#oracle"]')[0];
+
+			if( current_location[1] !== undefined && current_location[1].includes('#oracle') && anchor){
+
+				window.addEventListener('load', function(){
+					requestAnimationFrame(function(){
+						anchor.scrollIntoView(true);
+
+						// for firefox
+						setTimeout(function(){
+							anchor.scrollIntoView(true);
+						}, 150);
+					});
+				});
+
+			}
+		}
+
+	},
+
+	indicateLegacyPosts: function(context) {
+        var newsletter_number = parseInt(context.model.get('title'));
+        if (newsletter_number <= 100) {
+            context.$el.addClass('legacy')
+
+            var legacyHeader = $('.site_header', context.$el);
+
+            _.each(legacyHeader, function(header) {
+                header.innerHTML = `<div class="header_buttons"><div></div><div></div><div></div></div>`  ;
+                $(header).closest('.image-link').addClass('pad-bottom-trick');
+            });
+
+            var inUseLinks = $('[data-in-use-grid] a.image-link', context.$el);
+            inUseLinks.each(function(){
+                $(this).wrapInner('<div class="border-wrapper">')
+            })
+            
+            
+        } else if (newsletter_number <= 126 && newsletter_number > 100) {
+        	context.$el.addClass('new')
+
+        	if (!Cargo.Homepage.Helpers.isAdminEdit()) {
+
+	        	var $img = context.$el.find('img').first();
+	        	var source = $img.attr('data-src');
+
+	        	if ($img.length > 0) {
+	        		if (source !== undefined && source.match('blue-bolt')) {
+
+	        			if ($img.closest($('.bolt-wrapper')).length == 0) {
+	        				$img.wrap('<div class="bolt-wrapper"></div>')
+	        			}
+		        	}
+	        	}
+
+        	}
+        	
+        }
+
+        console.log( newsletter_number )
+        
+    	if( newsletter_number > 126 && newsletter_number < 161 ) {
+    		context.$el.addClass('blog-ver-one')
+    	}
+
+    	if( newsletter_number > 160 ) {
+    		context.$el.addClass('blog-ver-two')
+    	}
+
+    },
+
+    reBorderStaffPick: function(context) {
+    		var news_number = parseInt(context.model.get('title'));
+
+    		if (news_number == 005 || news_number == 006 || news_number == 007 || news_number == 009 ) {
+	        	var staff_pick = $('[data-staff-pick-image] a.half-width.image-link.pad-bottom-trick', context.$el);
+	        	if(staff_pick.length == 0 || staff_pick.length != 1 ){
+	        		var staff_pick = $('[data-featured-in-use] a.half-width.image-link.pad-bottom-trick', context.$el);
+	        		staff_pick.removeAttr('style');
+	        		staff_pick.attr("legacy-border-special", "");
+	        	} else {
+	        		staff_pick.removeAttr('style');
+	        		staff_pick.attr("legacy-border-special", "");
+	        	}
+	        }
+    },
+
+    removeDoubleBorder: function(context) {
+    		var num = parseInt(context.model.get('title'));
+
+    		if(num <= 55){
+    			var double_attr_nodes = $('[data-featured-in-use][data-in-use-grid]', context.$el);
+    			if(double_attr_nodes.length >= 1){
+    			    double_attr_nodes.removeAttr("data-in-use-grid");
+    			}
+    		}
+    },
+
+    wrapStaffPick: function(context){
+    	var num = parseInt(context.model.get('title'));
+
+    	if(num <= 100){
+
+    	// if (num === 50) {
+    		var el = $('[data-featured-in-use] a.half-width.pad-bottom-trick.image-link', context.$el);
+    		var wrapper = document.createElement('div');
+	    	if (el.length == 0) {
+		    	el = $('[data-staff-pick-image] a.half-width.pad-bottom-trick.image-link', context.$el);
+	    	}
+	    	var existingWrapper = $('.staff-pick-wrapper', context.$el);
+	    	if (existingWrapper.length >= 1) {
+	    		return
+	    	}
+	    	wrapper.className = 'staff-pick-wrapper'
+
+	    	if (el[0] !== undefined) {
+	    		el[0].parentNode.insertBefore(wrapper, el[0]);
+	    		wrapper.appendChild(el[0]);
+	    	}
+	    	
+	    } else {
+	    	var updates_img = $('[data-staff-pick-image] img[data-mid]', context.$el);
+
+    		_.each(updates_img, function(image){
+    			var w = $(image).width();
+    			var h = $(image).height();
+    			if (w/h !== NaN) {
+    				var ratio = w/h;
+    				if (ratio == 1.6) {
+    					$(image).closest('.image-link').addClass('new_ratio');
+    				}
+    			}
+    		})	
+	    	
+	    	
+	    }
+    },   
+   
+}
+
+Cargo.Homepage.HomeInUse = {
+
+	activeFilter: 'portfolio',
+
+	setup: function(context) {
+		if (Cargo.Homepage.Helpers.isAdminEdit() || Cargo.Helper.IsAdminEdit()) return;
+
+		this.$pageEl = context.$el;
+
+		
+
+		// this.doFilter();
+	    // this.bindFilterLinks();
+	},
+
+
+
+// 	bindFilterLinks: function() {
+// 		var _this = this;
+// 
+// 		_.each(this.$pageEl.find('[data-filter]'), function(filterLink){
+// 			$(filterLink).on('click', function() {
+// 				_this.activeFilter = $(this).attr('data-filter');
+// 				_this.doFilter();
+// 			})
+// 		});
+// 
+// 	},
+
+	// doFilter: function() {
+	// 	this.filterImages();
+	// 	this.setActiveFilterLink();
+	// 	Cargo.Plugins.elementResizer.refresh()
+	// },
+
+	
+
+// 	filterImages: function() {
+// 		var _this = this;
+// 	    _.each(this.$pageEl.find('img'), function(image, index){
+// 
+// 	    	var captionText = $(image).attr('data-caption');
+// 	    	var $gridCell = $(image).closest('[grid-col]');
+// 
+// 	    	if (captionText.match(_this.activeFilter) !== null) {
+// 
+// 	    		$gridCell.removeClass('hidden')
+// 
+// 	    	} else {
+// 	    		$gridCell.addClass('hidden')
+// 	    	}
+// 	    });
+// 	}
+}
+
+
+// TEMPLATES
+Cargo.Homepage.templates = {
+
+	loading_anim: '<div class="loading_animation pulsing"style="display: none; position:fixed;top:50%;left:50%"><div><svg height=32px viewBox="0 0 32 32"width=32px><g id=Page-1 fill=none fillrule=evenodd stroke=none strokewidth=1><g id=Group-12><circle cx=16 cy=16 fill=#FFFFFF id=Oval-Copy-30 r=15.5 stroke=var(--blue)></circle><g id=Group-5-Copy-10 fill=var(--blue)><g id=Group-6><path d="M16,16 L1.19904087e-14,16 C0,7.163444 7.163444,0 16,0 L16,16 Z"id=Combined-Shape-Copy-7></path><path d="M32,32 L16,32 C16,23.163444 23.163444,16 32,16 L32,32 Z"id=Combined-Shape-Copy-8 transform="translate(24.000000, 24.000000) rotate(-180.000000) translate(-24.000000, -24.000000) "></path></g></g></g></g></svg></div></div>',
+	data: undefined,
+	context: undefined,
+
+	templatePreviewTemplate: _.template(`
+		<%
+			_.each(templates, function(template, index){
+			index = index + 1;
+			inuse_url = template.websafe_name;
+		%>
+			<div class="template" size-filter="<%= template.size_filter %>" data-order="<%= index %>" data-tid="<%= template.id %>">
+				<a href="#" rel="history" class="image-link site-window" data-siteurl="<%= template.url %>" <% if (template.has_video) { %>style="width: 100%;"<% } %>>
+			        <div class="site_header" style="text-align: left;"><div class="header_buttons"><div></div><div></div><div></div></div></div>
+		        	<img class="new_ratio" data-src="<%= template.thumbnail %>" <% if (template.vimeo_id) { %>data-video-id="<%= template.vimeo_id %>"<% } %>>
+			    </a>
+			    <br>
+		        <br>
+		        <small>
+		        	<span><%= template.name %></span>
+			        <% if (template.in_use) { %>
+						<a data-load-inuse rel="history" href="In-Use/<%= inuse_url %>">[In Use]</a>
+			        <% } %>
+		        </small>
+	        </div>
+		<% 
+			});
+		%>
+	`),
+
+
+	setup: function(context) {
+		
+		this.data = Cargo.Homepage.templateCollection;
+		this.addSortingFields();
+
+		if (context !== undefined) {
+			this.context = context;
+		}
+
+		// see if we have a filter from the URL
+		var current_path = document.location.pathname.replace(/\/$/, ""),
+			last_slash = current_path.substr(current_path.lastIndexOf('/')+1),
+			size = last_slash.toLowerCase() == 'templates' ? 'all' : last_slash ;
+
+		// if we have a templates page, render them
+		if ($('.templates').length !== 0 && this.data !== undefined) {
+			this.renderTemplates(size);
+		}
+
+		// if ($('.templates2').length !== 0 && this.data !== undefined) {
+		// 	this.renderTemplates('all');
+		// }
+
+		// if we have a hash — open the preview
+		if (window.location.hash !== undefined) {
+
+			if (this.opening_from_hash !== true) {
+				this.opening_from_hash = true;
+
+				var siteurl = window.location.hash.substring(1);
+
+				if (typeof globalPreview == 'object' && siteurl !== undefined && siteurl !== '') {
+
+					globalPreview.open('https://' + siteurl + '.' + homepageBaseDomain, true);
+					globalPreview.on();
+
+					setTimeout(_.bind(function(){
+						this.opening_from_hash = false;
+					}, 200), this)
+
+				}	
+			}
+
+		}
+
+	},
+
+	addSortingFields: function() {
+		var small_count = 0;
+		var medium_count = 0;
+		var large_count = 0;
+		_.each(Cargo.Homepage.templateCollection.models, function(model, index){
+			index = index+1;
+
+			var	sizes = model.get('size_filter').split(',');;
+
+			_.each(sizes, function(size) {
+				switch (size.trim()) {
+					case 'small' :
+						small_count += 1;
+						model.set({
+							'filtered_index_small': small_count,
+							'index': index
+						})
+						break;
+					case 'medium':
+						medium_count += 1;
+						model.set({
+							'filtered_index_medium': medium_count,
+							'index': index
+						})
+						break;
+					case 'large':
+						large_count += 1;
+						model.set({
+							'filtered_index_large': large_count,
+							'index': index
+						})
+						break; 
+				}
+			})
+
+		});
+	},
+
+	bindFilterLinks: function(context) {
+
+		var _this = this;
+		this.header_context = context;
+
+		$('.header a', context.$el).each(function(){
+			var filter = $(this).attr('href');
+			if (filter !== undefined) {
+				$(this).on('click', function(e){
+					e.preventDefault();
+					e.stopImmediatePropagation();
+
+					var url_filter = filter == 'all' ? '' : '/'+filter ;
+					history.replaceState({} , 'Templates', '/Templates'+url_filter );
+					Backbone.history.fragment = '/Templates'+url_filter;
+
+					_this.filterTemplatesBySize(filter);
+				})
+			}
+		});
+
+	},
+
+	filterTemplatesBySize: function(size) {
+		// remove indicated states
+		$('.header a', this.context.$el).removeClass('active');
+		$('.template', this.context.$el).removeClass('display');
+
+		var filterall = size === 'all';
+
+		if (!filterall) {
+
+			setTimeout(_.bind(function(){
+				$('.header a[href="'+size+'"]', this.context.$el).addClass('active');
+			},this), 15);
+
+		} else {
+			setTimeout(_.bind(function(){
+				$('.header a[href="all"]', this.context.$el).addClass('active');
+			},this), 15)
+			
+		}
+
+		_.each(Cargo.Homepage.templateCollection.models, function(model){
+			// console.log(model, filterall)
+			if (filterall) {
+				$('.template[data-tid="'+model.get('id')+'"]')
+					.attr('data-order', model.get('index'))
+					.css('order', model.get('index'));
+
+			} else if (model.get('size_filter').match(size) !== null) {
+
+				$('.template[data-tid="'+model.get('id')+'"]')
+					.attr('data-order', model.get('filtered_index_'+size))
+					.css('order', model.get('filtered_index_'+size));
+
+
+			} else {
+				$('.template[data-tid="'+model.get('id')+'"]')
+					.attr('data-order', 100)
+					.css('order', 100);
+			}
+			
+		})
+
+		// update the location of the images (since scroll isn't triggered — hiding some may cause far away images to be visible)
+		if (this.templateImageRefs) {
+			_.each(this.templateImageRefs, function(image, index) {
+				if(image.___scrollWatcher !== undefined) {
+					if ($(image).closest('[size-filter]').attr('size-filter').match(size)) {
+						image.___scrollWatcher.recalculateLocation();
+						image.___scrollWatcher.update();
+						image.___scrollWatcher.triggerCallbacks();
+					}
+					
+				}
+			})
+		}
+
+			
+		
+	},
+
+	renderTemplates: function(size, skip) {
+		var _this = this;
+		if (Cargo.Homepage.Helpers.isAdminEdit()) return;
+
+		//regular templates
+		var data = this.data.toJSON()
+		var templates = _.filter(data, function(model){
+			return !model.size_filter.match('wireframe')
+		})
+		this.context.$el.find('.template_list').not('.wireframes').append(this.templatePreviewTemplate({templates: templates}));
+
+		// wireframes
+		var wireframes = _.filter(data, function(model){
+			return model.size_filter.match('wireframe')
+		})
+		this.context.$el.find('.wireframes').append(this.templatePreviewTemplate({templates: wireframes}));
+
+		// get the URL — and filter
+		this.filterTemplatesBySize(size)
+
+		this.templateImageRefs = [];
+
+		_.each($('.template'), function(template){
+
+			$(template).on('click', function(e){
+				var link = $('a', e.currentTarget)[0];
+
+				// clicked on in use link? do that, and get out
+				var is_inuse_link = $(e.target).is('[data-load-inuse]');
+				var is_clickable_area = $(e.target).closest('a').length > 0 || $(e.target).is('a') || $(e.target).is('span') || $(e.target).closest('span').length > 0;
+				if (is_inuse_link || !is_clickable_area) {
+					return;
+				}
+
+				// prevent link from propagating
+				if (e.target == link || $(e.target).closest('a') !== undefined) {
+					e.preventDefault();
+					e.stopImmediatePropagation();
+				}
+
+				// open the global preview with the URL of the site we clicked on
+				if(typeof globalPreview == 'object' && link.hasAttribute('data-siteurl')) {
+					globalPreview.open(link.getAttribute('data-siteurl'));
+					globalPreview.on();
+				}
+
+			});
+
+			// lazy load the images
+			var image = $(template).find('img')[0];
+
+			if (image !== undefined) {
+				_this.templateImageRefs.push(image)
+
+				if (image.___scrollWatcher == undefined) {
+					image.___scrollWatcher = scrollMonitor.create(image, 600);
+					image.___scrollWatcher.enterViewport(function() {
+						_this.loadImage(image, $(template).width());
+					});
+				}	
+			}
+
+		})
+
+		$('.template_list').append($('.template-information'));
+		$('.template-information').addClass('template')
+
+		$('body').prepend(this.loading_anim);
+
+	},
+
+	loadImage: function(image, width) {
+
+		var _this = this;
+
+		if (!image.hasAttribute('src')) {
+
+			var new_img = new Image(),
+				clone_image = image.cloneNode(),
+				orig_src = image.getAttribute('data-src'),
+				hash = orig_src.substring(orig_src.indexOf('/i/') + 3, orig_src.length),
+				requestedSize = (width)*2,
+				base = '//freight.cargo.site/w/'+Math.ceil(requestedSize/100)*100+'/q/94/i/';
+
+
+				clone_image.onload = function() {
+
+					$(image).replaceWith(clone_image);
+
+					if (image.___scrollWatcher !== undefined) {
+						image.___scrollWatcher.destroy();
+						image.___scrollWatcher = undefined;
+					}
+
+				};
+
+				$(clone_image).removeClass('new_ratio')
+				clone_image.src = base+hash;
+			
+			
+
+		}
+	},
+
+
+	unBindAndRemovePreview: function(context) {
+
+		if (context.preview !== undefined) {
+			context.preview.close();
+			context.preview.off();
+			context.preview = undefined;
+		}
+
+	}
+
+}
+
+
+
+
+
+
+/***************************
+	DOMAIN SEARCH
+	Domain search is required in from the admin and some functionality overwritten to work on the homepage.
+***************************/
+
+Cargo.Homepage.Domains = {
+
+	bindListeners: function() {
+		// before page renders, remove search bindings
+		Cargo.Event.on("before_purl_render", function(purl){
+			Cargo.Homepage.Domains.removeSearch();
+		});
+	},
+
+	setupSearch: function(context, domain_name) {
+
+		if (Cargo.Editor == undefined && this.DomainView == undefined) {
+
+			require([
+				'domains/_views/main'
+			], _.bind(function(DomainsView) {
+
+				Cargo.Editor = {};
+				Cargo.Editor.Router = new Backbone.Router();
+
+				Cargo.Editor.EditingSession = {
+					get: function() {}
+				}
+
+				Cargo.Model.AdminSite = Cargo.Model.Site.clone();
+
+				if (this.DomainView) {
+					this.DomainView.remove();
+				}
+
+				this.DomainView = new DomainsView({fromHomepage: true});
+
+				if(Cargo.Domains.Collection.AccountDomainList) {
+					Cargo.Domains.Collection.AccountDomainList.fetch = function(){};	
+					// fix for homepage domain search breaking
+					Cargo.Domains.Collection.AccountDomainList.off('sync');
+				}
+
+				this.renderSearchForm(context, domain_name);
+
+			}, this));
+
+		} else {
+
+			this.renderSearchForm(context, domain_name);
+
+		}
+
+	},
+
+	removeSearch: function() {
+
+		if (this.DomainView) {
+			this.DomainView.remove();
+			delete this.DomainView;
+		}
+
+		delete Cargo.Editor;
+		delete Cargo.Model.AdminSite;
+
+	},
+
+	renderSearchForm: function(context, domain_name) {
+
+		this.showSearch(context);
+		this.reAssignSearchEvents(context);
+
+		// if there was a domain name passed in the URL, submit the search
+		if (domain_name !== undefined) {
+
+			Cargo.Domains.Collection.DomainTldList.once('sync', _.bind(function() {
+
+				$('input[name="query"]').val(domain_name);
+				$('#search section').last().show();
+
+				this.search_view.SubmitSearch();
+				$(window).scrollTop(100000);
+
+			}, this));
+
+		} else {
+
+			// or make sure there is nothing
+			$('#search section').last().hide();
+
+		}
+	},
+
+	showSearch: function(context) {
+
+		if (this.DomainView !== undefined) {
+
+			var append_to = context.$el.find('#domain_wrapper_wrapper');
+			context.$el.find('#domain_wrapper').remove();
+			this.DomainView.preventSearchFocus();
+			append_to.append(this.DomainView.render().$el);
+
+
+			this.DomainView.preventSearchFocus();
+
+			this.DomainView.ShowSearch();
+
+			$('input[name="query"]')
+				.removeAttr('autofocus')
+				.attr('placeholder', '');
+
+
+			$('input[name="query"]').on('focusin focusout', function(e){
+				if ($(e.target).val().trim() !== '' && $(e.target).val().trim() !== undefined) return;
+				$(this).closest('[data-input-parent]').toggleClass('placehold');
+			})
+
+			this.search_view = this.DomainView.SearchView;
+			this.search_view.limit = 10;
+
+		}
+
+	},
+
+	reAssignSearchEvents: function(context) {
+
+		var _this = this;
+		// first undelegate so we can overwrite and redelegate later
+		if (this.search_view !== undefined) {
+			this.search_view.undelegateEvents();
+		} else {
+			console.warn('no search view')
+			return;
+		}
+
+		// prevent default on clicks
+		this.search_view.$el.find('*').on('click', function(e) {
+			e.preventDefault();
+		});
+
+
+		this.search_view.SubmitSearch = function() {
+			// clear errors
+			$('.error', this.el).removeClass('error');
+			$('[data-message]', this.el).addClass('hidden');
+
+			// if input isn't empty
+			if ($('input[name="query"]').val().trim() != '') {
+				var query = this.SanitizeQuery($('input[name="query"]').val());
+
+				// if submitting a domain with cargocollective.com
+				if (query.match(/cargocollective/g) || query.match(/cargo\.site/g)) {
+					this.displayErrorMessage('This domain is unavailable.', '[name="query"]');
+					return false;
+				}
+
+				// Update the form with the sanitized query
+				$('input[name="query"]').val(query);
+
+				Cargo.Homepage.Domains.DomainView.searchQuery.set({
+					query: query,
+					term: query,
+					tld: this.GetAndRemoveTld(query).tld[0]
+				});
+
+				setTimeout(function() {
+					_this.DomainView.ShowSearch({
+						query: query
+					});
+					$('input[name="query"]').closest('[data-input-parent]').addClass('placehold');
+					$('.next_domainlist_set').html('︎10 MORE');
+
+					$('input[name="query"]').on('focusin focusout', function(e){
+						if ($(e.target).val().trim() !== '' && $(e.target).val().trim() !== undefined) return;
+						$(this).closest('[data-input-parent]').toggleClass('placehold');
+					})
+				}, 200);
+
+			}
+
+			$('[data-destination="settings"]').closest('.col').remove();
+
+			$('.next_domainlist_set').closest('.col')
+				.addClass('more-domains row')
+				.removeClass('pad-small')
+
+			$('#search section').last().show();
+
+			return false;
+		};
+
+		this.search_view.ShowNextResultPage = _.wrap(this.search_view.ShowNextResultPage, function(original) {
+			// call the orig function
+			var args = Array.prototype.slice.call(arguments);
+			args.shift();
+
+			original.apply(this, args);
+
+			_.each(this.rows, function(row) {
+				// undelegate events so we can overwrite the choose domain one
+				row.undelegateEvents();
+				// this now do what we want with this domain
+				row.ChooseDomain = function(e) {
+
+
+					if (typeof __cargo_maint__ !== 'undefined' && __cargo_maint__ === true) {
+
+						Cargo.Modal.Alert({
+							message: "Sorry, we are performing scheduled maintenance until 10PM PST."
+						})
+
+						document.body.style.overflow = 'hidden';
+
+						Cargo.Event.once('confirm_modal:close', function(){
+
+							document.body.style.overflow = '';
+
+						});
+
+						return;
+					}
+
+					var full_domain_name = this.model.get('query') + '.' + $(e.currentTarget).attr('data-tld');
+					var message = "Purchase " + full_domain_name + "?";
+					Cargo.Modal.Confirm({
+						message: message,
+						confirm: function() {
+							// tell google analytics we are purchasing a domain
+							Cargo.Analytics.trackevent('homepage_domain_lead');
+
+							if (Cargo.API.Config.cookie_link) {
+								parent.document.location.href = Cargo.API.Config.cookie_link + '/admin/settings/newdomain/' + full_domain_name + '/purchase';
+							} else {
+								parent.document.location.href = 'https://account.'+homepageBaseDomain+'/admin/settings/newdomain/' + full_domain_name + '/purchase';
+							}
+						}
+					});
+
+					var purchaseDomain = {
+						full_domain: this.model.get('query') + '.' + $(e.currentTarget).attr('data-tld'),
+						domain_name: this.model.get('query'),
+						domain_tld: $(e.currentTarget).attr('data-tld'),
+						cost: this.model.get('cost')
+					}
+
+				}
+
+				// redelegate the events
+				row.delegateEvents();
+			});
+		});
+
+		this.search_view.ShowResults = _.wrap(this.search_view.ShowResults, function(original) {
+
+			// call the orig function
+			this.offset = 0;
+			$('.results',this.el).empty();
+
+			// First, filter out a term with a TLD, save the stripped term, then show that TLD up front
+			var term = Cargo.Homepage.Domains.DomainView.searchQuery.get('term');
+
+			// Get a (possible) tld and new term back
+			var tld_query = this.GetAndRemoveTld(term);
+			
+			// Set the term to the stripped-of-tld version
+			Cargo.Homepage.Domains.DomainView.searchQuery.attributes.term = tld_query.query;
+
+			// If there is a tld requested, show it first
+			// somewhere along this path the query has already had the TLD removed, so just going to get it from the model for now
+			if(Cargo.Homepage.Domains.DomainView.searchQuery.get('tld') != '') {
+				this.ShowSearchedTldFirst();
+			}
+
+			// Show the first page of results
+			this.ShowNextResultPage();	
+
+			$('[data-domainlist-set-toggle]', this.el).css('display', 'flex');
+
+		});
+
+
+		this.search_view.ShowSearchedTldFirst = _.wrap(this.search_view.ShowSearchedTldFirst, function(original) {
+			// call the orig function
+			var args = Array.prototype.slice.call(arguments);
+			args.shift();
+
+			original.apply(this, args);
+
+			_.each(this.rows, function(row) {
+				// undelegate events so we can overwrite the choose domain one
+				row.undelegateEvents();
+				// this now do what we want with this domain
+				row.ChooseDomain = function(e) {
+
+					var full_domain_name = this.model.get('query') + '.' + $(e.currentTarget).attr('data-tld');
+					var message = "Purchase " + full_domain_name + "?";
+					Cargo.Modal.Confirm({
+						message: message,
+						confirm: function() {
+							// tell google analytics we are purchasing a domain
+							Cargo.Analytics.trackevent('homepage_domain_lead');
+
+							if (Cargo.API.Config.cookie_link) {
+								parent.document.location.href = Cargo.API.Config.cookie_link + '/admin/settings/newdomain/' + full_domain_name + '/purchase';
+							} else {
+								parent.document.location.href = 'https://account.'+homepageBaseDomain+'/admin/settings/newdomain/' + full_domain_name + '/purchase';
+							}
+						}
+					});
+
+					var purchaseDomain = {
+						full_domain: this.model.get('query') + '.' + $(e.currentTarget).attr('data-tld'),
+						domain_name: this.model.get('query'),
+						domain_tld: $(e.currentTarget).attr('data-tld'),
+						cost: this.model.get('cost')
+					}
+
+				}
+
+				// redelegate the events
+				row.delegateEvents();
+			});
+
+		});
+
+
+		// re-delegate them events
+		this.search_view.delegateEvents();
+
+	},
+
+
+
+
+	handleDomainSearch: function(context) {
+
+		var domain_name = context.$el.find('[name="domain_search"]').val();
+
+		this.navigateToDomainPage(domain_name);
+
+	},
+
+	navigateToDomainPage: function(domain_name) {
+
+		var _this = this;
+
+		this.DomainView;
+
+		var query = domain_name;
+		this.query = query;
+
+		require([
+			'domains/_views/main',
+		], function(DomainsView) {
+
+			Cargo.Editor = {};
+			Cargo.Editor.Router = new Backbone.Router();
+
+			Cargo.Model.AdminSite = Cargo.Model.Site.clone();
+
+			if (_this.DomainView) {
+				_this.DomainView.remove();
+			}
+
+			_this.DomainView = new DomainsView();
+
+			if(Cargo.Domains.Collection.AccountDomainList) {
+				// fix for homepage domain search breaking
+				Cargo.Domains.Collection.AccountDomainList.off('sync');
+			}
+
+			$("[data-id='52078']").html(_this.DomainView.render().$el);
+			_this.DomainView.ShowSearch();
+
+			$("[data-id='52078']").html(_this.DomainView.SearchView.render().$el);
+			_this.DomainView.SearchView.render().$el.wrap('<div id="domain_wrapper" />');
+
+			setTimeout(function() {
+				Cargo.Homepage.Domains.DomainView.searchQuery.set({
+					term: query,
+					tld: ''
+				});
+			}, 1000);
+
+			setTimeout(function() {
+				_this.DomainView.ShowSearch({
+					query: query
+				});
+			}, 1200);
+
+			_this.search_view = _this.DomainView.SearchView;
+
+			_this.search_view.limit = 10;
+
+			_this.search_view.undelegateEvents();
+
+			_this.search_view.$el.find('.next_domainlist_set').on('click', function(e) {
+				e.preventDefault();
+			})
+
+			_this.search_view.ShowNextResultPage = _.wrap(_this.search_view.ShowNextResultPage, function(original, e) {
+				// call the orig function
+				var args = Array.prototype.slice.call(arguments);
+				args.shift();
+
+				original.apply(this, args);
+
+				_.each(this.rows, function(row) {
+					// undelegate events so we can overwrite the choose domain one
+					row.undelegateEvents();
+					// this now do what we want with this domain
+					row.ChooseDomain = function(e) {
+
+						var full_domain_name = this.model.get('query') + '.' + $(e.currentTarget).attr('data-tld');
+						var message = "Purchase " + full_domain_name + "?";
+						Cargo.Modal.Confirm({
+							message: message,
+							confirm: function() {
+								// tell google analytics we are purchasing a domain
+								Cargo.Analytics.trackevent('homepage_domain_lead');
+
+								if (Cargo.API.Config.cookie_link) {
+									parent.document.location.href = Cargo.API.Config.cookie_link + '/admin/settings/newdomain/' + full_domain_name + '/purchase';
+								} else {
+									parent.document.location.href = 'https://account.'+homepageBaseDomain+'/admin/settings/newdomain/' + full_domain_name + '/purchase';
+								}
+							}
+						});
+
+						var purchaseDomain = {
+							full_domain: this.model.get('query') + '.' + $(e.currentTarget).attr('data-tld'),
+							domain_name: this.model.get('query'),
+							domain_tld: $(e.currentTarget).attr('data-tld'),
+							cost: this.model.get('cost')
+						}
+
+					}
+
+					// redelegate the events
+					row.delegateEvents();
+				});
+
+			});
+
+			_this.search_view.ShowSearchedTldFirst = _.wrap(_this.search_view.ShowSearchedTldFirst, function(original) {
+				// call the orig function
+				var args = Array.prototype.slice.call(arguments);
+				args.shift();
+
+				original.apply(this, args);
+
+				_.each(this.rows, function(row) {
+					// undelegate events so we can overwrite the choose domain one
+					row.undelegateEvents();
+					// this now do what we want with this domain
+					row.ChooseDomain = chooseDomain;
+					// redelegate the events
+					row.delegateEvents();
+				});
+			});
+
+			_this.search_view.delegateEvents();
+
+		});
+	}
+
+}
+// Bind the homepage listeners ASAP
+Cargo.Homepage.Domains.bindListeners();
+
+
+
+
+
+/***************************
+	FONTS Page
+***************************/
+Cargo.Homepage.FontPage = {
+
+	setup: function() {
+		this.setupInvertButton();
+		this.bindScrollLoading();
+		this.bindScaleSlider();
+
+		// this.handleFontPopup();
+	},
+
+	handleFontPopup: function(){
+
+		let hasSeenFontPopup = true; //assume we've seen the popup
+		try {
+			if(localStorage.getItem('font-popup-seen') !== "1") {
+			
+				hasSeenFontPopup = false;
+				// if we haven't and we have local storage access, show it.
+			}
+			// localStorage.setItem('font-popup-seen', "1");
+		} catch(e) {
+			console.log('no localstorage access');
+			return
+		}
+		if( hasSeenFontPopup === false && !Cargo.Homepage.Helpers.isAdminEdit() ) {
+			// if we haven't and we have local storage access, show it.
+			let popupEl = document.getElementById('popup');
+			popupEl.style.cssText = 'display: block;'
+
+			var popupClickHandler = function(e) {
+				if( e?.target.closest('.nav') || 
+					e?.target.closest('.no-close') ||
+					Cargo.Helper.GetCurrentProjectUrl() !== 'Fonts' ){
+					return
+				}
+				popupEl.style.cssText = 'display: none;'
+				localStorage.setItem('font-popup-seen', "1");
+				document.removeEventListener('click', popupClickHandler);
+			}
+
+			document.addEventListener('click', popupClickHandler)
+		}
+	},
+
+	bindScaleSlider: function(){
+		setTimeout(function() {
+			$('#fontsize')[0].addEventListener('input', function(e){
+
+				var newSize = $(e.currentTarget).val();
+
+				window.requestAnimationFrame(function(){
+			    	$('#fontsizestyle').html(`.font-grid ul li {font-size: `+newSize+`rem}`)
+			    })
+			});	
+		}, 100)
+		
+	},
+
+	bindScrollLoading: function() {
+		var ipsums = ['Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur in egestas arcu. Interdum et malesuada fames ac ante ipsum primis in faucibus','Aenean dignissim lacinia ante in gravida. Pellentesque blandit lectus vel arcu maximus lacinia. Nullam nunc sapien, vehicula eget ante sed, rhoncus eleifend enim','Nam at purus ullamcorper massa malesuada accumsan. Pellentesque non dolor eros. Aliquam a ornare ante. Vivamus mattis eget quam ut varius','Nullam lobortis tempor congue. Phasellus eget iaculis nisl, Vestibulum quis velit vehicula, consequat magna id, vehicula lacus','Duis urna metus, efficitur eget porta et, imperdiet ut nulla. Nulla lobortis volutpat elit sed faucibus. Aliquam id mi auctor, porttitor erat accumsan, sagittis nisi','Curabitur condimentum hendrerit felis, id consectetur urna laoreet non. Nullam vitae ex in est sollicitudin luctus nec ac purus. Nullam finibus eleifend purus sed pulvinar','Duis scelerisque sagittis mi quis semper. Cras fermentum convallis semper. Duis aliquam egestas augue ut pellentesque. Nam mi ipsum, finibus a urna et, aliquam sodales eros','Cras et diam nunc. Etiam sed lorem laoreet, egestas mi tincidunt, faucibus justo. Nulla facilisi. Fusce tincidunt ipsum ut ante sagittis eleifend. Phasellus at ultricies nisi','Aliquam auctor bibendum nisi, blandit auctor dui pharetra sit amet. Maecenas at massa ultricies, feugiat elit vitae, interdum dui. Vivamus mattis eget quam ut varius','Nullam sit amet arcu nec justo auctor ultricies nec quis ipsum. Duis in dolor at leo ornare rutrum a vitae lorem. Proin eu viverra nulla','Vivamus in pellentesque est. Nam pellentesque lectus ipsum. Aenean porttitor, elit in ornare viverra, metus ex placerat justo, a faucibus lorem dui nec leo','Quisque aliquam sollicitudin elit et pellentesque. Suspendisse gravida porttitor magna sed gravida. Sed pharetra viverra purus','Proin imperdiet ac libero vitae euismod. Phasellus neque felis, rhoncus vulputate dui vel, congue gravida orci. Etiam bibendum lorem ultricies accumsan fermentum','Duis eu urna sapien. Phasellus placerat dolor in commodo consectetur. Nullam id laoreet velit, eu bibendum nisl. In at cursus metus','Cras consequat eu justo in scelerisque. Vestibulum dolor turpis, tincidunt id mattis a, faucibus sed velit. Vestibulum molestie, dui sit amet rutrum ultrices, orci enim convallis ante, vitae lacinia tellus','Sed ac consequat dui. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sit amet semper orci. Nunc sollicitudin faucibus erat, ut molestie est tempor ac','Sed condimentum ornare velit quis dignissim. Quisque ipsum sapien, convallis ac est eu, lacinia pellentesque purus. Class aptent taciti sociosqu ad litora torquent per conubia nostra','Nam orci purus, consequat non lorem sit amet, sollicitudin vehicula tellus. Aliquam et feugiat est. Pellentesque lobortis ligula dignissim mauris porttitor, nec pretium arcu sodales','Pellentesque vehicula tempus odio posuere vehicula. Fusce sit amet tortor pellentesque, sagittis turpis et, varius eros. Praesent scelerisque felis tempus, volutpat neque eu, sodales dui','Praesent ac augue eu orci tincidunt porta vel ut purus Praesent ut blandit metus. Suspendisse sit amet ipsum congue. Aliquam ut ipsum eget felis commodo ullamcorper. ','Pellentesque sit amet sagittis urna. Fusce sollicitudin mauris sit amet mattis blandit. Pellentesque dignissim nec tellus rhoncus viverra. Vivamus mattis eget quam ut varius','Nunc tincidunt vestibulum urna ut ultrices. Fusce eu lacus velit. Suspendisse at libero venenatis, aliquet purus vitae, malesuada odio. lacus velit. Suspendisse at libero venenatis, aliquet purus vitae.','Vivamus finibus nibh leo, id iaculis elit hendrerit vitae. Fusce aliquam nibh bibendum faucibus tristique. Cras aliquet, arcu et sagittis posuere, arcu lacus luctus ante, id pellentesque odio.','Eros vel sapien. Aenean sed metus eros. Fusce porta, lectus ut aliquam iaculis, massa massa consequat enim, ut volutpat orci nunc quis arcu. vitae lacinia tellus','Aliquam lacinia ligula sagittis, tempor nunc finibus, sodales est. Nunc ullamcorper convallis nibh sit amet facilisis. Proin eget enim id felis tempus cursus. ','Duis dignissim dolor urna, quis scelerisque leo dapibus sed. Integer blandit convallis ante, vel convallis eros ullamcorper quis. Faucibus lorem dui nec leo','Cras condimentum magna nec urna pulvinar, nec tempor massa porta. Proin dapibus dolor gravida porttitor mattis. Phasellus molestie venenatis libero, in molestie odio suscipit','Quisque placerat tortor non lacus sollicitudin pellentesque. Maecenas eu scelerisque orci. Curabitur congue lacus odio, eget lobortis ipsum pellentesque ut','Proin viverra fringilla felis id finibus. Pellentesque urna orci, consequat quis pharetra in, elementum quis magna. Cras sed nisl ac turpis molestie bibendum. Sed finibus, enim quis tincidunt','Donec a viverra felis. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Sed erat velit, mollis non sollicitudin a, fringilla id sem','Suspendisse condimentum tellus pulvinar mi hendrerit, eu vestibulum ligula tempor. Ut purus ligula, luctus sit amet finibus vitae, pharetra vel arcu. Fusce feugiat hendrerit mauris','Praesent consectetur leo eget enim euismod hendrerit. Praesent tempus ut quam vitae ornare. Vivamus rhoncus, quam id fermentum ultricies, justo dolor auctor lectus, porta feugiat','Curabitur sodales tempor est, et tempor ante bibendum quis. Quisque molestie gravida cursus. Integer aliquet id augue non hendrerit. Etiam efficitur convallis euismod. Phasellus vel enim','Duis elit orci, iaculis a feugiat hendrerit, egestas id metus. Aenean bibendum dolor scelerisque vulputate euismod. Fusce ipsum felis, rhoncus eget lorem non, dapibus efficitur','Pellentesque metus elit, interdum eu nunc quis, pulvinar dignissim nisi. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Cras elementum facilisis ex','Pellentesque non ipsum quam. Pellentesque ornare ex in felis gravida consectetur. Cras cursus porta tellus a congue. Ut fringilla nulla eu rutrum commodo','Nullam convallis ipsum viverra ante placerat, ac tempor eros tempus. Pellentesque vestibulum blandit rutrum. Class aptent taciti sociosqu ad litora torquent per conubia nostra','Donec mollis nibh massa, id facilisis nunc eleifend non. In hac habitasse platea dictumst. Pellentesque ac blandit tortor, ac tempor sapien. Vestibulum quis neque pellentesque, sodales odio quis','Praesent scelerisque leo id lectus efficitur tristique. Vestibulum commodo interdum metus. Sed porta pulvinar arcu, non varius dolor. Lorem ipsum dolor sit amet, consectetur adipiscing elit','Nullam id nibh pellentesque, porta tortor eu, tincidunt justo. Donec nec nulla sit amet nulla vehicula rhoncus eu eget enim. Nunc sed ipsum eget dolor pellentesque semper. Nullam bibendum quam odio','Nullam eget tincidunt mauris. Nullam sagittis arcu eget mi gravida, eleifend tempor diam rutrum. Praesent rutrum, felis in gravida consequat, libero tellus pretium turpis','Fusce suscipit magna ac metus pellentesque ultricies. Donec sollicitudin orci in pulvinar hendrerit. Orci varius natoque penatibus et magnis dis parturient montes','Pellentesque ac quam sit amet orci ultricies rhoncus. Sed tempor non sapien non dapibus. Donec maximus maximus tempus. Maecenas interdum arcu in venenatis interdum','Vivamus et mi faucibus, condimentum ipsum luctus, rutrum tortor. Donec gravida vitae nunc ac porta. Sed rutrum magna non finibus congue. Quisque condimentum risus et metus porttitor'];
+		
+		var options = {
+			root: null,
+			rootMargin: '1000px 0px',
+			threshold: 1.0
+		}
+
+		window.__handledfonts = window.__handledfonts || [];
+
+		var observer = new IntersectionObserver(entries => {
+			
+			entries.forEach(entry => {
+				
+				if (!entry.isIntersecting) {
+					return;
+				}
+
+				var webfontstr = entry.target.getAttribute('data-webfont');
+
+				if(window.__handledfonts.includes(webfontstr)) {
+					return;
+				}
+	            
+				var webfontConfiguration = $(entry.target).data('webfont');
+
+				webfontConfiguration.active = function(){
+	            				
+					document.querySelectorAll('[data-family="'+entry.target.getAttribute('data-family')+'"]').forEach(function(el){
+						el.classList.remove('in-progress');
+					});
+
+				}
+	            
+	            setTimeout(function(){
+					document.querySelectorAll('[data-family="'+entry.target.getAttribute('data-family')+'"]').forEach(function(el){
+						el.classList.remove('in-progress');
+					});
+				}, 1000);
+
+
+				WebFont.load(webfontConfiguration);
+
+				window.__handledfonts.push(webfontstr);
+
+			});
+
+		}, options);
+
+		document.querySelectorAll('li.grid-item').forEach(function(el){
+	    
+	    	var ipsum = ipsums[Math.floor(Math.random() * ipsums.length)];
+	    
+	    	$(el).children('span').eq(1).text(ipsum);
+
+			if(window.__handledfonts.includes(el.getAttribute('data-webfont'))) {
+				el.classList.remove('in-progress');
+				return;
+			}
+
+			el.classList.add('in-progress');
+			observer.observe(el)
+		});
+
+
+	},
+
+	setupInvertButton: function() {
+		$('#invert_button')
+			.off('click.invert')
+			.on('click.invert', function(){
+				$('body').toggleClass('invert');
+
+				localStorage.setItem('fontsPageInvertStatus', $('body').is('.invert'));
+			})
+
+		if (localStorage.getItem('fontsPageInvertStatus') === 'true') {
+			$('body').addClass('invert')
+		}
+	}
+
+}
+
+
+Cargo.o.view.StandaloneThumbs = Backbone.View.extend({
+
+	/**
+	 * @type {Object}
+	 */
+	Subview: false,
+
+	/**
+	 * @type {Object}
+	 */
+	MobileSubview: false,
+
+	/**
+	 * @type {Object}
+	 */
+	templates: {},
+
+	template: $('[type="text/x-handlebars-template"]#thumbnail').html(),
+
+	thumbnailPaths: __cargo_context__ === "staging" ? {
+		'columns': 		'/_jsapps/thumbnails/columns/main.js',
+		'freeform': 	'/_jsapps/thumbnails/freeform/main.js',
+		'grid': 		'/_jsapps/thumbnails/grid/main.js',
+		'justify':		'/_jsapps/thumbnails/justify/main.js',
+		'montessori':	'/_jsapps/thumbnails/montessori/main.js'
+	} : {
+		'columns': 		'https://static.cargo.site/assets/builds/thumbnails/columns.js',
+		'freeform': 	'https://static.cargo.site/assets/builds/thumbnails/freeform.js',
+		'grid': 		'https://static.cargo.site/assets/builds/thumbnails/grid.js',
+		'justify':		'https://static.cargo.site/assets/builds/thumbnails/justify.js',
+		'montessori':	'https://static.cargo.site/assets/builds/thumbnails/montessori.js'
+	},
+
+	/**
+	 * Start AJAX requests for the thumbnail template and modes.
+	 *
+	 * @return {Object} this
+	 */
+	initialize: function () {
+		
+		if (!this.model) {
+			this.model = Cargo.Model.ThumbnailSettings;
+		}
+
+		this.collection = new standaloneThumbsCollection();
+
+
+		// Listen to the resize event
+		Cargo.Event.on('mobile_size', _.bind(this.checkSizeAndActivateView, this));
+
+		return this;
+	},
+
+	/**
+	 * Request all necessary templates for this view. Calls setup
+	 * if all templates are available.
+	 *
+	 * @param {String} name The name of the template
+	 * @return {Object} this
+	 */
+	requestTemplate: function (name, path) {
+		// this.templates = {};
+
+		this.listenTo(Cargo.Event, 'template_loaded', this.checkTemplate);
+
+		this.listenTo(Cargo.Event, 'content_load_complete', this.setActiveThumb);
+
+		var template_name = (!name) ? this.model.get('name') : name;
+		var template_path = (!path) ? this.model.getTemplatePath() : path;
+		
+		this.templates[template_name] = Cargo.Template.Get(template_name, template_path);
+		this.templates['Thumbnail'] = Cargo.Template.Get('Thumbnail');
+
+		if (_.contains(this.templates, undefined)) {
+			return this;
+		}
+
+		this.stopListening(Cargo.Event, 'template_loaded');
+
+		// See if we should render mobile or normal
+		var mobile_data = this.model.get('data').mobile_data;
+		
+		if(mobile_data && mobile_data.separate_mobile_view && this.model.get('data').responsive && Cargo.Helper.IsMobileWindowSize( document.documentElement.clientWidth )) {
+			
+			this.setupMobile();
+		
+		} else {
+			this.setup();
+		}
+
+		return this;
+	},
+
+	/**
+	 * Check the loaded (that is AJAX-loaded) template name against
+	 * the templates needed. Once there are no more missing templates
+	 * call setup.
+	 *
+	 * @param  {String} templateName
+	 * @return {Object} this
+	 */
+	checkTemplate: function (templateName) {
+		if (!(templateName in this.templates)) {
+			return this;
+		}
+
+		this.templates[templateName] = Cargo.Template.Get(templateName);
+
+		if (_.contains(this.templates, undefined)) {
+			return this;
+		}
+
+		this.stopListening(Cargo.Event, 'template_loaded');
+		
+		// See if we should render mobile or normal
+		var mobile_data = this.model.get('data').mobile_data;
+		
+		if(mobile_data && mobile_data.separate_mobile_view && this.model.get('data').responsive && Cargo.Helper.IsMobileWindowSize( document.documentElement.clientWidth )) {
+
+			this.setupMobile();
+		
+		} else {
+			this.setup();
+		}
+
+		return this;
+	},
+
+	/**
+	 * Setup the subview for rendering the thumbnails partial.
+	 *
+	 * @return {Object} this
+	 */
+	setup: function () {
+
+		this.addEventListeners();
+
+		var activeMode = Cargo.Collection.ThumbnailModes.findWhere({ mode_id: this.model.get('mode_id') });
+
+		if (!activeMode) {
+			return this;
+		}	
+
+		// Request view.
+		require(
+			[
+				this.thumbnailPaths[activeMode.get('path')]
+			],
+			_.bind(this.setupSubView, this)
+		);
+
+		return this;
+	},
+
+	/**
+	 * Setup the subview for mobile
+	 * 	
+	 * @return {Object} this
+	 */
+	setupMobile: function() {
+		this.addEventListeners();
+
+		if(this.MobileSubview) {
+			this.render(this.MobileSubview);
+			return;
+		}
+
+		// If the text module is not loaded yet, recall this until it is
+		if(!require.defined("!text") && !Backdrop.Data.require_loaded) {
+			_.delay(_.bind(this.setupMobile, this), 100); 
+			return;
+		}
+
+		var mobile_data = this.model.get('data').mobile_data;
+
+		// Request default data + view
+		require(
+			[
+			 'text!/_jsapps/thumbnails/' + mobile_data.mobile_design_path + '/defaults.json',
+			 '/_jsapps/thumbnails/' + mobile_data.mobile_design_path + '/main.js'
+			],
+			_.bind(this.setupMobileSubView, this)
+		);
+
+		return this;
+	},
+
+	/**
+	 * Activate the mobile version of these thumbnails
+	 * This is called by listening to the resize event from events.js
+	 * It will check to see if a mobile mode is desired, and if a mobile path is set
+	 * Then load the template, which sets up and renders the view
+	 * 
+	 * @return {Object} this
+	 */
+	activateMobile: function() {
+		this.model.set('mobile_active', true, {changing: 'mobile_active'});
+
+		var mobile_data = this.model.get('data').mobile_data;
+
+		// We have mobile data and we want to use mobile settings? 
+		if(mobile_data && mobile_data.separate_mobile_view && mobile_data.mobile_design_path && this.model.get('data').responsive) {
+
+			var name = mobile_data.mobile_design_path;
+			var path = this.model.getTemplatePath(name);
+
+			// Check to see if we have the template, if so re-render
+			if(this.templates && this.templates[name.toCamel(true)]) {
+				this.setupMobile();
+
+			// If not, get it
+			} else {
+				this.requestTemplate( name.toCamel(true), path );
+			}
+
+		} else if ( mobile_data){
+
+			// if the mobile mode is handled inside the normal view, we let the view handle it
+			// No template loaded yet? Load one
+			if(!this.templates || !this.templates[this.model.get('name')]) {
+				this.requestTemplate();
+			}
+		}
+
+		return this;
+	},
+
+	/**
+	 * Activate the normal layout mode
+	 * This is triggered by a resize event
+	 * 
+	 * @return {Object} this
+	 */
+	activateNormal: function() {
+		this.model.set('mobile_active', false, {changing: 'mobile_active'});
+
+		// Mobile set? We have template? Re-activate normal
+		if(this.MobileSubview && this.templates[this.model.get('name')]) {
+			this.setup();
+			return;
+		}
+
+		// No template? Load one
+		if(!this.templates || !this.templates[this.model.get('name')]) {
+			this.requestTemplate();
+			return this;
+		}
+
+		return this;
+	},
+
+	/**
+	 * Bind event listeners for thumbnails display.
+	 *
+	 * @return {Object} this
+	 */
+	addEventListeners: function () {
+
+		this.stopListening(this.collection, 'sync');
+		this.listenTo(this.collection, 'sync', this.checkCollectionLengthAndSize);
+
+		this.stopListening(Cargo.Event, 'elementresizer_refresh_complete');
+		this.listenTo(Cargo.Event, 'elementresizer_refresh_complete', this.matchThumbModelsWithElementResizerChildren);
+
+
+		this.stopListening(Cargo.Event, 'thumbnails_render_complete');
+		this.listenTo(Cargo.Event, 'thumbnails_render_complete', this.formatThumbnails);
+
+		return this;
+	},
+
+	matchThumbModelsWithElementResizerChildren: function(){
+
+		if(!this.Subview) {
+			return;
+		}
+
+		_.each(Cargo.Plugins.elementResizer.targets(), function(elementResizerParent){
+
+			if(elementResizerParent.container === this.Subview.el) {
+
+				_.each(elementResizerParent.children, function(childObj){
+					
+					if(childObj.imageModel !== undefined) {
+						return;
+					}
+
+					var thumbModel = this.collection.findWhere({
+						thumb: childObj.element.dataset.mid
+					});
+
+					if(
+						thumbModel 
+						&& thumbModel.get('thumb_meta') 
+						&& thumbModel.get('thumb_meta').thumbnail_crop
+						&& thumbModel.get('thumb_meta').thumbnail_crop.imageModel
+					) {
+
+						childObj.imageModel = new Cargo.o.model.image(thumbModel.get('thumb_meta').thumbnail_crop.imageModel);
+
+					} 
+
+				}, this)
+			}
+
+		}, this)
+
+	},
+
+	formatThumbnails: function() {
+
+		var id, model, _this = this;
+
+		if (!this.el) return;
+
+		_.each(this.el.querySelectorAll('.thumbnail:not(.formatted)'), function(thumb) {
+
+			model = this.collection.get(
+				parseInt(thumb.getAttribute('data-id'))
+			);
+
+			if (model == undefined) {
+				return
+			};
+
+			var isGuide = _.filter(Cargo.Homepage.SitesInUseNeue.filtersArr, function(filter){ return filter.SID === model.get('set_id')}).length > 0;
+			// var isGuide = Cargo.Homepage.SitesInUseNeue.loadedSetID !== pid_list.sites_in_use ? true : false;
+			var homeInUseArrow = isGuide ? `<svg class="inusearrow" viewBox="0 0 20.3 35.47"><path class="cls-1" d="M25.1,22.35,8.37,5.25a1.17,1.17,0,0,0-.82-.4,1,1,0,0,0-.76.3A1.12,1.12,0,0,0,6.46,6l-.27,23.8a1.1,1.1,0,0,0,.34.91,1.15,1.15,0,0,0,1.71-.13l4.45-4.94,5.28,13a1.07,1.07,0,0,0,.56.6.93.93,0,0,0,.78,0L22.23,38a.85.85,0,0,0,.53-.56,1.1,1.1,0,0,0-.06-.83L17.25,23.94l7,.39a1.15,1.15,0,0,0,.9-.29,1.11,1.11,0,0,0,.35-.79A1.22,1.22,0,0,0,25.1,22.35Z" transform="translate(-5.69 -4.35)"/></svg>` : `` ;
+
+
+			var thumb = $(thumb),
+				thumb_image_container = thumb.find('.thumb_image'),
+				thumb_image = thumb_image_container.find('img'),
+				image_ratio = thumb_image_container[0].style.paddingBottom,
+				content = model.attributes.excerpt,
+				content = content.replace(/\n|\r/g, "");
+
+				// strip out 'in use' and 'staff picks' from the tags, and use that to get the model for the progenitor template
+			var	thumb_tags = model.get('tags'),
+				tags_string = thumb_tags.replace('In Use, ', ''),
+				tags_string = tags_string.replace('Staff Picks, ', '').trim(),
+				tags_array = tags_string.split(','),
+				progenitor_template = tags_array[0],
+				proj_model = Cargo.Homepage.SitesInUse.getProgenitorModel('websafe_name', progenitor_template.replace(/ /g, '-').replace(/\./g, ''));
+
+				if (localStorage.getItem('inuse-updates-2021') === 'true') {
+
+					$('body').addClass('inuseupdates2021')
+
+					var categories = _.without(tags_array, tags_array[0]);
+					_.each(categories, function(category, index){
+						categories[index] = category.trim();
+					});
+
+					if (categories.length === 0) {
+						// console.log('no tags for page:', model.get('id'), model)
+					}
+				}
+
+				// get some data from the template model
+			var progenitor_url = proj_model !== undefined ? proj_model.url : '',
+				progenitor_name = proj_model !== undefined ? proj_model.name : '',
+				progenitor_id = proj_model !== undefined ? proj_model.id : '',
+				progenitor_name = progenitor_name.match('Untitled') ? 'Untitled' : progenitor_name,
+				// determine if it is featured
+				featured = thumb_tags.match('Staff Picks') !== null,
+				featured_text = featured ? content.substr(content.indexOf('<br><br>') + 8): '',
+				featured_singlerow = model.get('single_row') == true || model.get('single_row') == undefined,
+				// if sorting methods have flagged this as a singleton
+				count_overflow = model.get('count_overflow') === 1 ? true : false,
+				// clean up the site in use's URL
+				site_url = /(https?:\/\/[^\s]+)/g.exec(model.attributes.excerpt),
+				site_url = site_url === null ? "" : site_url[0],
+				url_clean = site_url.replace(/http:\/\//g, '').replace(/https:\/\//g, '').replace(/www\./g, '').replace(/\/$/g, ""),
+				// generate the link to append for the progenitor template
+				progenitor_link = progenitor_template !== 'Custom' ? '<a href="#" class="template_wrapper" data-tid="'+progenitor_id+'" data-siteurl="'+progenitor_url+'">Template︎&nbsp;' + progenitor_name + '</a>' : progenitor_template,
+				includedProgenitorLink = isGuide ? '' : '<mono class="progenitor_template">'+progenitor_link+'</mono>';
+				progenitor_line = '<div class="inuse_info"><mono><a href="'+site_url+'" target="_blank">'+homeInUseArrow+' ' + url_clean + '</a></mono>'+includedProgenitorLink+'</div>';
+
+
+			var w = parseInt(thumb_image[0].getAttribute('width'))
+			var h = parseInt(thumb_image[0].getAttribute('height'))
+
+			// new ratio
+			if (h/w < .7) {
+				thumb.find('a').addClass('new_ratio')
+			}
+
+			// format the thumb with the HREF and the index attr
+			if (!thumb.is('.updated-url') && site_url !== "") {
+
+				thumb.find('a.image-link')
+					.attr('href', site_url)
+					.attr('target', '_blank')
+					.removeAttr('rel')
+					.addClass('updated-url');
+
+				if (count_overflow) {
+					thumb.wrap('<div class="featured_thumb_wrapper">')
+				}
+
+				
+				thumb.append(progenitor_line);
+
+
+			}
+
+			thumb.addClass('formatted')
+
+			thumb_image_container.prepend('<div class="site_header" style="text-align: left;"><div class="header_buttons"><div></div><div></div><div></div></div></div>');
+
+			thumb.on('click', function(e){
+
+				if(typeof globalPreview == 'object' && e.target.hasAttribute('data-siteurl')) {
+					e.preventDefault();
+					e.stopImmediatePropagation();
+					globalPreview.open(e.target.getAttribute('data-siteurl'), false, parseInt(e.currentTarget.getAttribute('data-tid')));
+					globalPreview.on();
+				}
+
+			});
+
+		}, this);
+		
+
+	},
+
+	/**
+	* When the collection is loaded or synced, show or hide depending on the 
+	*
+	**/
+	checkCollectionLengthAndSize: function(collection, response, options){
+
+		// this happens if a sync request is running, and another
+		// page has been loaded in the meantime.
+		var callbackIsStale = false; 
+
+		if(options && options.params && options.params.page_id !== undefined && options.params.page_id !== this.currentPageID) {
+			// this is data for a page_id that's not currently loaded.
+			callbackIsStale = true;
+		}
+
+		options = options || {};
+
+		if ( this.collection.length > 0 ){
+
+			this.checkSizeAndActivateView( Cargo.Helper.IsMobileWindowSize( document.documentElement.clientWidth ) );
+
+			this.checkPagination();
+
+			_.defer(function(){
+				Cargo.Plugins.elementResizer.refresh()
+			});
+
+		}
+	},
+
+	/**
+	 * Turn mobile size on/off
+	 * This is called from the mobile size event
+	 * this is also used during the initial loading of the view
+	 * 
+	 * @param  {Boolean} is_mobile_size If we reached mobile size or not
+	 */
+	checkSizeAndActivateView: function(is_mobile_size, force) {
+
+
+		if ( is_mobile_size && this.model.get('data').responsive ){
+
+			if ( !this.model.get('mobile_active') || !this.MobileSubview.inited ){
+				this.activateMobile();
+			}
+
+		} else {
+
+			if ( this.model.get('mobile_active') || !this.Subview.inited ){
+				this.activateNormal();
+			}
+		}
+
+	},
+
+	/**
+	 * @param  {Object} SubView Backbone View.
+	 * @return {Object} this
+	 */
+	setupSubView: function (SubView) {
+		if (this.Subview) {
+			this.Subview.remove();
+		}
+
+		this.Subview = new SubView({
+			model: this.model,
+			collection: this.collection,
+			parentView: this
+		});
+
+		this.render(this.Subview);
+		this.Subview.inited = true;
+
+		return this;
+	},
+
+	setResponsive: function(){
+
+		if ( this.model.get('mobile_active') && this.model.get('data').responsive ){
+			this.el.setAttribute('responsive-layout','')
+		} else {
+			this.el.removeAttribute('responsive-layout')
+		}
+	},
+
+	/**
+	 * @param  {Object} MobileSubView Backbone View.
+	 * @return {Object} this
+	 */
+	setupMobileSubView: function (defaults_json, MobileSubView) {
+		if (this.MobileSubview) {
+			this.MobileSubview.remove();
+		}
+
+		// Turn the json into an object
+		var defaults = JSON.parse(defaults_json);
+
+		// Extend the object with this model's mobile data
+		_.extend(defaults, this.model.get('data') );
+
+		// Get the thumbnail mode info
+		var mode = Cargo.Collection.ThumbnailModes.findWhere({ path: defaults.mobile_data.mobile_design_path });
+
+		// Make a real model out of this data
+		var model = new Cargo.o.model.thumbnailsettings();
+
+		// Set the appropriate values for the page and mode
+		model.set({
+			page_id : this.model.get('page_id'),
+			site_id : this.model.get('site_id'),
+			mobile_active : this.model.get('mobile_active'),
+			mode_id : mode.get('mode_id'),
+			name 	: mode.get('name'),
+			path 	: mode.get('path'),
+			data 	: defaults
+		});
+
+		// Create the subview
+		this.MobileSubview = new MobileSubView({
+			model: model,
+			collection: this.collection,
+			parentView: this
+		});
+
+		this.render(this.MobileSubview);
+		this.MobileSubview.inited = true;
+
+		return this;
+	},
+
+	/**
+	 * @param {Object} View The subview to render
+	 * @return {Object} this
+	 */
+	render: function (View) {
+
+		if(!View) {
+			View = this.Subview;
+		}
+
+		this.setResponsive();
+
+		Handlebars.registerPartial('thumbnail_subview', '');
+		var template = Cargo.Template.Get('Thumbnail');
+		var markup = Cargo.Core.Handlebars.Render(template, {});
+		this.$el.html(markup);
+
+		var $thumbnails = this.$el.find('.thumbnails');
+		$thumbnails.empty();
+		$thumbnails.replaceWith(View.$el);
+		View.render();
+
+		if(!this.el._thumb_pagination_watcher) {
+			
+			this.el._thumb_pagination_watcher = scrollMonitor.create( this.el, {bottom: -screen.height * 2} );
+
+			this.el._thumb_pagination_watcher.partiallyExitViewport(_.bind(function() {
+				setTimeout(_.bind(this.checkPagination, this));
+			}, this));
+
+			this.checkPagination();
+
+		}
+
+		return this;
+	},
+
+	checkPagination: function(){
+
+		scrollMonitor.recalculateLocations();
+
+		if(
+			this.el &&
+			this.el._thumb_pagination_watcher && 
+			!this.el._thumb_pagination_watcher.isBelowViewport
+		) {
+			this.collection.paginate();
+		}
+
+	}
+
+});
+
+var standaloneThumbsCollectionCache = {};
+var standaloneThumbsCollection = Backbone.Collection.extend({
+
+	initialize : function(options) {
+
+		this.paginating = false;
+		this.fetching = false;
+		this.currentParams = {};
+
+		this.paginationIncrement = 50;
+		this.paginationComplete = false;
+
+	},
+
+	paginate: function(){
+
+		if(this.paginating || this.fetching) {
+			// no pagination while we're still busy
+			return;
+		}
+
+		if(this.paginationComplete) {
+			// no pagination if everything for currentParams has been loaded
+			return;
+		}
+
+		if(this.currentParams.random_limit !== undefined) {
+			// no pagination for random thumbs
+			return;
+		}
+
+		if(!this.currentParams || Object.keys(this.currentParams).length === 0) {
+			return;
+		}
+		
+		this.paginating = true;
+
+		this.currentParams.offset += this.paginationIncrement;
+
+		$('[data-loading="page"]').show();
+
+		this.fetchWithOptions({
+			params: this.currentParams,
+			remove: false,
+			from_pagination: true,
+			success: _.bind(function(collection, models, options) {
+
+				$('[data-loading="page"]').hide();
+				this.paginating = false;
+
+			}, this),
+			error: _.bind(function() {
+				$('[data-loading="page"]').hide();
+				//this.paginating = false;
+			}, this)
+		});
+
+	},
+
+	/**
+	 * @param  {Object} options
+	 */
+	fetchWithOptions: function (options) {
+
+		// console.trace('load inuse page', options)
+
+		options = options || {};
+
+		_.defaults(options, {
+			params: {},
+		});
+
+		this.currentParams = options.params;
+
+		var new_url = Cargo.API.GetThumbnailsPath(options.params.page_id, options.params.force_all, options.params.tags, options.params.set_id, undefined, undefined, options.params.random_limit),
+			cache;
+
+		if (__testing_live__ === true) {
+			new_url = new_url.replace(/dev\./, '')
+		}
+
+		if(standaloneThumbsCollectionCache.hasOwnProperty(new_url)) {
+
+			cache = standaloneThumbsCollectionCache[new_url];
+
+			if(cache.paginationComplete || options.from_pagination !== true) {
+
+				this.paginationComplete = cache.paginationComplete;
+
+				this.set(standaloneThumbsCollectionCache[new_url].data);
+				this.trigger('sync', this, standaloneThumbsCollectionCache[new_url].data, options);
+
+				// call the success function
+				if(typeof options.success === 'function') {
+					options.success.call(options.context, this, standaloneThumbsCollectionCache[new_url].data, options);
+				}
+
+				return;
+
+			} else {
+
+				this.url = Cargo.API.GetThumbnailsPath(options.params.page_id, options.params.force_all, options.params.tags, options.params.set_id, cache.offset, this.paginationIncrement);
+
+			}
+
+		}
+
+		if(this.url === new_url) {
+			// double load of uncached response, just wait till the first one completes.
+			return;
+		}
+
+		if(!cache) {
+			this.url = new_url;
+		}
+
+		// wrap the success callback, so that we can cache successful requests.
+		options.success = _.wrap(options.success, _.bind(function(success, collection, thumbnailObjects) { 
+
+			if(options.params.random_limit !== undefined) {
+				this.paginationComplete = true;
+			} else {
+				this.paginationComplete = thumbnailObjects.length < this.paginationIncrement;
+			}
+
+			if(cache) {
+
+				cache.data = _.union(cache.data, thumbnailObjects);
+				cache.paginationComplete = this.paginationComplete;
+				cache.offset += thumbnailObjects.length;
+
+				this.set(cache.data);
+
+			} else {
+				// store results of successful fetch in the responseCache object
+				standaloneThumbsCollectionCache[new_url] = {
+					data: thumbnailObjects,
+					offset: thumbnailObjects.length,
+					paginationComplete: this.paginationComplete
+				};
+			}
+
+			// forward arguments, but remove the first argument (the success function itself)
+			var args = Array.prototype.slice.call(arguments);
+			args.shift();
+
+			if(success) {
+				// call the original success function
+				success.apply(options.context, args); 
+			}
+
+		}, this));
+
+		this.fetching = true;
+
+		var xhr = Backbone.Collection.prototype.fetch.apply(this, arguments);
+
+		xhr.always(function(){
+			this.fetching = false;
+		}.bind(this))
+
+		// fetch from server
+		return xhr;
+	}
+});
+
+Cargo.Homepage.SitesInUseNeue = {
+
+	defaultFilterID: pid_list.in_use_guide_overview,
+	loadedSetID: null,
+
+	filtersArr: [{"SID":18867171,"setName":"Academic","path":"Academic"},{"SID":18867909,"setName":"Activism/Nonprofit","path":"Activism-Nonprofit"},{"SID":18811580,"setName":"Architecture","path":"Architecture"},{"SID":18851620,"setName":"Archive","path":"Archive"},{"SID":18833031,"setName":"Art","path":"Art"},{"SID":18813148,"setName":"Art Gallery","path":"Art-Gallery"},{"SID":18812091,"setName":"Books/Publisher","path":"Books-Publisher"},{"SID":18848274,"setName":"Ceramics","path":"Ceramics"},{"SID":18852896,"setName":"Choreography/Dance","path":"Choreography-Dance"},{"SID":18847486,"setName":"Creative Studio","path":"Creative-Studio"},{"SID":18813952,"setName":"Fashion","path":"Fashion"},{"SID":18827563,"setName":"Fashion Photography","path":"Fashion-Photography"},{"SID":18851285,"setName":"Festival","path":"Festival"},{"SID":18847977,"setName":"Film","path":"Film"},{"SID":18864635,"setName":"Food","path":"Food"},{"SID":18811642,"setName":"Furniture","path":"Furniture"},{"SID":18852260,"setName":"Graphic Design","path":"Graphic-Design"},{"SID":18831328,"setName":"Illustration","path":"Illustration"},{"SID":18864853,"setName":"Interactive","path":"Interactive"},{"SID":18869075,"setName":"Interior Design","path":"Interior-Design"},{"SID":18867530,"setName":"Journalism/Writing","path":"Journalism-Writing"},{"SID":18850362,"setName":"Magazine","path":"Magazine"},{"SID":18852401,"setName":"Misc/Etc","path":"Misc-Etc"},{"SID":18846962,"setName":"Musician/Label","path":"Musician-Label"},{"SID":18814709,"setName":"Overview Page","path":"Overview-Page"},{"SID":18826941,"setName":"Photography","path":"Photography"},{"SID":18865177,"setName":"Portfolio","path":"Portfolio"},{"SID":18814311,"setName":"Shops","path":"Shops"}],
+	setup: function(pageView) {
+		
+		if (Cargo.Homepage.Helpers.isAdminEdit() || Cargo.Helper.IsAdminEdit()) return;
+
+		this.pageView = pageView;
+
+		setTimeout(_.bind(function(){
+
+			// console.log('in use available?', $('#inuse_guide', pageView.$el).length)
+			// no container to render? don't render
+			if ($('#inuse_guide', pageView.$el).length === 0) return;
+
+			// bind the container to render thumbs into
+			this.filterableView = new Cargo.o.view.StandaloneThumbs({
+				el: $('#inuse_guide', pageView.$el)
+			});
+
+			// Setup everything so the view can render it's thumbs
+			this.filterableView.setup();
+
+			// create the filter links
+			this.insertAndBindInUseFilters();
+
+			// DEFAULT RENDER
+			// on the homepage — filter by default chosen filter
+			if (Cargo.Helper.IsOnHomepage()) {
+				this.filterSites(pid_list.in_use_graphic_design)
+			} else {
+				this.loadInUsePage(this.getMainTagURL());
+				this.bindSitesInUseTabReset();
+			}
+
+		},this), 250)
+
+		
+	},
+
+	unbind: function() {
+		this.mainSitesInUseView = undefined;
+	},
+
+	loadInUsePage: function(tag) {
+
+		// setup the in use below the filtered views
+		if (!this.mainSitesInUseView || this.loadedSetID) {
+			this.mainSitesInUseView = new Cargo.o.view.StandaloneThumbs({
+				el: $('#main_inuse', this.pageView.$el)
+			});
+			this.mainSitesInUseView.setup()
+		}
+		
+		this.mainInUseFilteredByTag = !tag ? null : tag;
+
+
+		// fetch the main thumbs below the filtered view
+		this.mainSitesInUseView.collection.fetchWithOptions({
+			params: {
+				tags: !tag ? undefined : encodeURIComponent(tag),
+				page_id: undefined, 
+				set_id: pid_list.sites_in_use,
+				random_limit: undefined,
+				force_all: undefined
+			},
+			reset: true,
+			success: _.bind(function(collection, result) {
+				this.mainSitesInUseView.checkCollectionLengthAndSize.apply(this.mainSitesInUseView, arguments);
+				$('.loading').hide()
+			}, this)
+		});
+
+
+		$('.template-filter-message').remove();
+
+		// if a URL is passed, then load that corresponding Set
+		if (this.getFilterIDByURL() !== null) {
+			if (localStorage.getItem('inuse-updates-2021') === 'true') {
+				this.filterSites(this.getFilterTagByURL());
+			} else {
+				this.filterSites(this.getFilterIDByURL());
+			}
+			
+		} else {
+
+			if (tag !== null) {
+				this.unFilterSitesForTags()
+				var tagReadable = Cargo.Homepage.SitesInUse.getProgenitorAttribute('websafe_name','name', tag)
+				this.pageView.$el.find('.filters').after('<div class="template-filter-message"><br><br>Featured sites using the “'+tagReadable+'” template:</div>')
+			} else {
+				this.unFilterSites();
+			}
+			
+		}
+
+		// if there is a hash, load the template preview
+		if (window.location.hash !== undefined) {
+			Cargo.Homepage.templates.setup()
+		}
+
+	},
+
+	unFilterSites: function() {
+		$('#inuse_guide').hide();
+		$('#all_inuse_header').hide();
+		this.loadedSetID = null;
+		Cargo.Router.navigate('/In-Use', {trigger: false});
+		this.setActiveFilterLink(pid_list.sites_in_use);
+
+		if (this.mainInUseFilteredByTag) {
+			this.resetMainSitesInUseCollection();
+		}
+	},
+
+	unFilterSitesForTags: function() {
+		$('#inuse_guide').hide();
+		$('#all_inuse_header').hide();
+		this.loadedSetID = null;
+		this.setActiveFilterLink();
+	},
+
+	getMainTagURL: function() {
+		if (document.location.pathname.toLowerCase().match('in-use')) {
+			var paths = window.decodeURI(document.location.pathname).split('\/');
+			var tag = paths[paths.length - 1];
+			var tagTemplateName = Cargo.Homepage.SitesInUse.getProgenitorAttribute('websafe_name','name', tag)
+			// console.log('get main tag URL', tagTemplateName, tag, Cargo.Collection.Tags.findTagByUrl(tag))
+			if (
+				tag && Cargo.Collection.Tags.findTagByUrl(tag)
+				|| 
+				// if the tag fails, try the name of the template
+				// there are many different methods and places of encoding for the tags vs template names
+				tag && Cargo.Collection.Tags.findTagByUrl(tagTemplateName)
+				||
+				// em dashes convert to spaces in tags but not thumbs
+				tag && tagTemplateName && tagTemplateName.match('—') && Cargo.Collection.Tags.findTagByUrl(tagTemplateName.replace('—', ' '))
+				||
+				//sometimes if there is a '/', it is converted to '-'
+				tag && tag.match('-') && Cargo.Collection.Tags.findTagByUrl(tag.replace('—', '_').toLowerCase())
+			) {
+				return tag;
+			} else {
+				return null;
+			}
+
+		} else {
+			return null;
+		}
+	},
+
+	getFilterIDByURL: function() {
+		if (document.location.pathname.toLowerCase().match('in-use')) {
+			var paths = document.location.pathname.split('\/');
+			var tag = paths[paths.length - 1].toLowerCase();
+			var matchingTag = _.filter(this.filtersArr, function(uniqueTag){ return uniqueTag.path.toLowerCase() === tag.toLowerCase()});
+
+			return matchingTag.length !== 0 ? matchingTag[0].SID : null ;
+		}
+	},
+
+	getFilterTagByURL: function() {
+		if (document.location.pathname.toLowerCase().match('in-use')) {
+			var paths = document.location.pathname.split('\/');
+			var tag = paths[paths.length - 1];
+			// .toLowerCase();
+			return tag;
+			// return this.getTagModel(tag);
+		}
+	},
+
+	bindSitesInUseTabReset: function() {
+		$('a[href="In-Use"]')
+			.off('click.reloadAll')
+			.on('click.reloadAll', _.bind(function(e) {
+
+				// if not viewing the 'sites in use' set, then filter by it when clicking the tab
+				if (this.loadedSetID !== pid_list.sites_in_use && !Cargo.Helper.IsOnHomepage()) {
+					e.preventDefault();
+					this.unFilterSites();
+				}
+				
+			},this))
+	},
+
+	generateFilterTagsArr: function() {
+		var filterArr = []
+		_.each(Cargo.Collection.Scaffolding.getContentOrPageModelByPid(pid_list.in_use_guide).toJSON().pages, function(page){
+			filterArr.push({
+		   		SID: page.id,
+		   		setName: page.title,
+		   		path: page.project_url.replace(/-1/, '')
+			})
+		})
+		console.log(JSON.stringify(filterArr));
+	},
+
+	getFilterID: function(filterName) {
+
+	},
+
+	insertAndBindInUseFilters: function() {
+
+		// <a href="#" class="filter" data-tag="Architecture">Architecture</a>
+		var _this = this;
+		var $filtersContainer = this.pageView.$el.find('.filters')
+		$filtersContainer.html('');
+
+		_.each(this.filtersArr, _.bind(function(tag){
+			var $tagFilterLink = $('<a>')
+					.attr('data-tag', tag.path)
+					.attr('class', 'filter')
+					.attr('tag-id', tag.SID)
+					.text(tag.setName)
+					.off('click.tagFilter')
+					.on('click.tagFilter', _.bind(function(e){
+
+						e.preventDefault();
+
+						if (!Cargo.Helper.IsOnHomepage()) {
+							this.updateURL(tag.path);
+
+							if (localStorage.getItem('inuse-updates-2021') === 'true') {
+								// console.log('click to load', tag)
+								this.setActiveFilterLinkByTag(tag.path);
+								this.filterInUsePageSites(tag.path);
+							} else {
+								this.filterSites(tag.SID);
+							}
+						} else {
+							this.filterSites(tag.SID);
+						}
+
+						
+					},this))
+
+			$tagFilterLink.appendTo($filtersContainer)
+
+		},this));
+
+		if (!Cargo.Helper.IsOnHomepage()) {
+			var $allFilterLink = $('<a>')
+				.attr('data-tag', 'all')
+				.attr('class', 'filter selected')
+				.attr('tag-id', pid_list.sites_in_use)
+				.text('All')
+				.off('click.tagFilterReset')
+				.on('click.tagFilterReset', _.bind(function(e){
+
+					
+					if (localStorage.getItem('inuse-updates-2021') === 'true') { 
+						// _this.loadInUsePage();
+						Cargo.Router.navigate('/In-Use', {trigger: false});
+						this.resetMainSitesInUseCollection();
+						_this.setActiveFilterLinkByTag('all');
+					} else {
+						_this.unFilterSites();
+					}
+
+				},this));
+
+			$filtersContainer.prepend($allFilterLink);
+		}
+	},
+
+	updateURL: function(filterPath) {
+		// var filter_websafe = this.getWebSafeFilter(filter)
+		Cargo.Router.navigate('/In-Use/' + filterPath, {trigger: false});
+	},
+
+	// getWebSafeFilter: function(filter) {
+	// 	return filter.replace(/ /g, '-').replace(/\//g, '-').toLowerCase();
+	// },
+
+	getTagModel: function(tagPath) {
+		var tagModel = Cargo.Collection.Tags.findTagByUrl(tagPath);
+		// then try by replacing '-' with '_'
+		tagModel = !tagModel ? Cargo.Collection.Tags.findTagByUrl(tagPath.replace('-', '_')) : tagModel;
+
+		return tagModel;
+	},
+
+	filterInUsePageSites: function(tagPath) {
+		
+		tagPath = tagPath && typeof tagPath === 'string' ? tagPath.toLowerCase() : undefined;
+		if (tagPath == undefined) return;
+		// first try with waht is passed
+		var tagModel = this.getTagModel(tagPath);
+		var tag = tagModel.get('tag');
+		tag = tag.match('/') ? tag.replace('/', '_') : tag;
+
+		if (tagModel !== undefined) {
+			this.mainSitesInUseView.collection.fetchWithOptions({
+				params: {
+					tags: tag,
+					page_id: undefined, 
+					set_id: pid_list.sites_in_use,
+					random_limit: undefined,
+					force_all: undefined
+				},
+				reset: true,
+				success: _.bind(function(collection, result) {
+					this.mainInUseFilteredByTag = null;
+					this.mainSitesInUseView.checkCollectionLengthAndSize.apply(this.mainSitesInUseView, arguments);
+					$('.loading').hide()
+				}, this)
+			});
+		}
+	
+		
+	},
+
+	filterSites: function(filterID) {
+
+		if (localStorage.getItem('inuse-updates-2021') === 'true') { 
+
+			if (!Cargo.Helper.IsOnHomepage()) {
+				// console.log('>>> filter sites')
+				this.setActiveFilterLinkByTag(filterID);
+				this.filterInUsePageSites(filterID);
+
+
+			} else {
+				// set the tag link to 'selected'
+				// fetch the thumbs and render them
+				this.loadedSetID = filterID;
+				this.setActiveFilterLink(filterID);
+				this.fetchAndRenderThumbsFor(filterID);
+
+				if (this.mainInUseFilteredByTag) {
+					this.resetMainSitesInUseCollection();
+				}
+			}
+
+		} else {
+			// set the tag link to 'selected'
+			// fetch the thumbs and render them
+			this.loadedSetID = filterID;
+			this.setActiveFilterLink(filterID);
+			this.fetchAndRenderThumbsFor(filterID);
+
+			if (this.mainInUseFilteredByTag) {
+				this.resetMainSitesInUseCollection();
+			}
+
+		}
+
+		
+// 		if (
+// 			!Cargo.Helper.IsOnHomepage() &&
+// 			filterID !== pid_list.sites_in_use
+// 		) {
+// 
+// 			// this.addOrRemoveFilterResetLink(true)
+// 		} else {
+// 
+// 			// this.addOrRemoveFilterResetLink(false)
+// 		}
+
+	},
+
+	resetMainSitesInUseCollection: function() {
+		// console.log('reset main sites in use')
+
+		$('.template-filter-message').remove();
+
+		if (!this.mainSitesInUseView) {
+			this.mainSitesInUseView = new Cargo.o.view.StandaloneThumbs({
+				el: $('#main_inuse', this.pageView.$el)
+			});
+			this.mainSitesInUseView.setup()
+		}
+
+		this.mainSitesInUseView.collection.fetchWithOptions({
+			params: {
+				tags: undefined,
+				page_id: undefined, 
+				set_id: pid_list.sites_in_use,
+				random_limit: undefined,
+				force_all: undefined
+			},
+			reset: true,
+			success: _.bind(function(collection, result) {
+				this.mainInUseFilteredByTag = null;
+				this.mainSitesInUseView.checkCollectionLengthAndSize.apply(this.mainSitesInUseView, arguments);
+				$('.loading').hide()
+			}, this)
+		});
+
+		
+	},
+
+	addOrRemoveFilterResetLink: function(add) {
+
+		var _this = this;
+
+		if (add) {
+
+			$('#inuse_guide').addClass('filtering')
+
+			if ($('.content_container').find('.filter-reset').length === 0) {
+
+				var $resetLink = $('<h2>')
+					.addClass('filter-reset')
+					.text('︎︎︎ All In Use')
+					.on('click', function(){
+						$(document.documentElement).scrollTop(0);
+						Cargo.Router.navigate('/In-Use/', {trigger: false});
+						_this.unFilterSites();
+					})
+
+				$resetLink.appendTo($('#inuse_guide')[0].parentNode)
+			}
+			
+		} else {
+			$('#inuse_guide').removeClass('filtering')
+			$('.content_container').find('.filter-reset').remove();
+		}
+		
+	},
+
+	setActiveFilterLink: function(filterID) {
+		this.pageView.$el.find('[tag-id]').removeClass('selected');
+		this.pageView.$el.find('[tag-id="'+filterID+'"]').addClass('selected')
+	},
+
+	setActiveFilterLinkByTag: function(tagName) {
+		// console.log('active filter link selected', tagName)
+		this.pageView.$el.find('[data-tag]').removeClass('selected');
+		this.pageView.$el.find('[data-tag="'+tagName+'"]').addClass('selected')
+	},
+
+	fetchAndRenderThumbsFor: function(SID, PID) {
+
+		this.filterableView.collection.fetchWithOptions({
+			params: {
+				tags: undefined,
+				page_id: PID, 
+				set_id: SID,
+				random_limit: undefined,
+				force_all: undefined
+			},
+			reset: true,
+			success: _.bind(function(collection, result) {
+				$('#inuse_guide').show();
+				$('#all_inuse_header').show();
+				this.filterableView.checkCollectionLengthAndSize.apply(this.filterableView, arguments);
+				$('.loading').hide()
+			}, this)
+		});
+	},
+
+
+		
+}
+
+
+Cargo.Homepage.SitesInUse = {
+
+	setup: function(tag) {
+
+		$('[href="In-Use"]').addClass('active');
+		
+		Cargo.Event.once('add_history', _.bind(function(){
+			$('[href="In-Use"]').removeClass('active');
+		},this));
+
+
+		var $pageEl = $('[local-style="'+pid_list.sites_in_use_header+'"]');
+		var $noteEl = $pageEl.find('.in-use-note');
+
+		if (tag !== undefined) {
+
+
+			var tag_url = tag.replace(/(^|[\s-])\S/g, function (match) {
+			    return match.toUpperCase();
+			});
+			
+			$noteEl.text('Featured Sites using ' + Cargo.Homepage.SitesInUse.getProgenitorAttribute('websafe_name','name', tag_url))
+			$pageEl.find('.view-all').show();
+
+		} else {
+			$noteEl.text('A collection of the best sites built using Cargo.');
+			$pageEl.find('.view-all').hide();
+			_.defer(function(){
+				$('[href="In-Use"]').addClass('active');
+			});
+			// make sure we reload the page
+			// Cargo.View.Content.RenderPidOrPurl(pid_list.sites_in_use_page, true, {silent: true});
+
+		}
+	},
+
+	getProgenitorAttribute: function(by_attribute, return_attribute, match_value) {
+
+		var match;
+
+		// 'Untitled' is actually 'Blank Template'
+		match_value = match_value == 'Untitled' ? 'Untitled (Blank Template)' : match_value;
+
+		_.each(Cargo.Homepage.templateCollection.toJSON(), function(model){
+			if (model[by_attribute] == match_value) {
+				match = model;
+			}
+		})
+
+		return match !== undefined ? match[return_attribute] : undefined;
+
+	},
+
+	getProgenitorModel: function(by_attribute, match_value) {
+
+
+		var match;
+		match_value = match_value == 'Untitled' || match_value == 'Custom' && by_attribute == 'websafe_name' ? 'Untitled-(Blank-Template)' : match_value;
+
+		_.each(Cargo.Homepage.templateCollection.toJSON(), function(model){
+			if (model[by_attribute] == match_value) {
+				match = model;
+			}
+		})
+
+		// if no match, and looking by 'websafe_name' — try 'name' as a failsafe
+		if (match === undefined && by_attribute === 'websafe_name') {
+			_.each(Cargo.Homepage.templateCollection.toJSON(), function(model){
+				if (model['name'] == match_value) {
+					match = model;
+				}
+			})
+		}
+
+		return match !== undefined ? match : undefined;
+
+	},
+
+	getLastTag: function(tags) {
+		var tagsSeparated = tags.split(',');
+
+		return tagsSeparated[tagsSeparated.length-1].trim();
+	}
+}
+
+
+Cargo.Homepage.ForSale = {
+	first_init: false,
+	setup: function(context){
+		// add the selections class to get the same styling
+		context.$el.addClass('selections');
+
+		// if (this.first_init) return;
+
+		Cargo.Event.off('image_gallery_render_complete', Cargo.Homepage.Selections.formatGallery);
+		Cargo.Event.on('image_gallery_render_complete', Cargo.Homepage.Selections.formatGallery, Cargo.Homepage.Selections);
+
+		Cargo.Event.off('image_gallery_rendered', Cargo.Homepage.Selections.bindCustomImageLoader);
+		Cargo.Event.on('image_gallery_rendered', Cargo.Homepage.Selections.bindCustomImageLoader, Cargo.Homepage.Selections);
+
+		// if navigation occurs, allow init to happen again	
+		Cargo.Event.once('add_history', _.bind(function(){
+			this.first_init = false;
+		},this));
+
+		this.first_init = true;
+
+	}
+}
+
+
+/***************************
+	SELECTIONS
+***************************/
+
+Cargo.Homepage.Selections = {
+
+	first_init: false,
+	see_more_clicked: false,
+	is_blog: false,
+	content_path: undefined,
+	pagination_counter: 0,
+
+	setup: function(context){
+
+		// has parent set by name jazz here
+		_.defer(function(){
+			$('[local-style="'+pid_list.global_header+'"] [href="Selections"]').addClass('active');
+		})
+
+		Cargo.Model.DisplayOptions.attributes.layout_options.image_zoom = true;
+
+		// failsafe to make sure class is removed if it takes too long to load all the pages and the above gets triggered after navigating
+		Cargo.Event.once('add_history', _.bind(function(purl){
+			setTimeout(function() {
+
+				var pagemodel = Cargo.Collection.Scaffolding.getModelByPurl(purl);
+				if (pagemodel && Cargo.Homepage.Helpers.hasParentSetByName(pagemodel, 'Selections')) {
+					return;
+				}
+				
+				Cargo.Model.DisplayOptions.attributes.layout_options.image_zoom = false;
+				$('[local-style="'+pid_list.global_header+'"] [href="Selections"]').removeClass('active')
+			}, 150)
+		},this));
+
+		$('[data-id="'+pid_list.selections_set+'"]').addClass('selections')
+
+	},
+
+	preloadSelectionsData: function () {
+		if (!Cargo.Homepage.Helpers.isAdminEdit() && !window.parent.location.pathname.match('admin')) {
+			Cargo.Collection.Scaffolding.getModel({
+			    id: pid_list.selections_set
+			}).get('pages').fetch = function(){
+			    this.url += '&fields=id,project_url,title,direct_link,display,is_set,stack,content,set_id,index,sort';
+			    return Backbone.Collection.prototype.fetch.apply(this, arguments);    
+			}
+
+			Cargo.Collection.Scaffolding.getModel({
+			    id: pid_list.selections_set
+			}).paginate({
+			    pagination_count: 99
+			})	
+		}
+	},
+
+	loadSelectionsImage: function(image) {
+
+		if (!image.hasAttribute('src') || $(image).attr('src').match('data:image/gif')) {
+			var orig_src = image.getAttribute('data-src'),
+				hash = orig_src.substring(orig_src.indexOf('nal/i/') + 6, orig_src.length),
+				requestedSize = (window.innerWidth/4)*2,
+				base = '//freight.cargo.site/w/'+Math.ceil(requestedSize/100)*100+'/q/94/i/',
+				full_url = base+hash;
+
+
+			image.setAttribute('src', full_url)
+
+			this.unBindImageScrollListener(image)
+		}
+	},
+
+	bindCustomImageLoader: function(gallery_obj) {
+		if(Cargo.Homepage.Helpers.isAdminEdit()) return;
+
+		var _this = this;
+		setTimeout(function() {
+			_.each(gallery_obj.el.querySelectorAll('img'), function(image){
+				_this.bindImageScrollListener(image);
+			})
+			_this.reInitLightboxByPID(gallery_obj)
+		}, 250)
+		
+	},
+
+	bindImageScrollListener: function(image){
+
+		var _this = this;
+
+		if (image.___scrollWatcher !== undefined) {
+			this.unBindImageScrollListener(image);
+		}
+
+		if (image.___scrollWatcher == undefined) {
+
+			image.___scrollWatcher = scrollMonitor.create(image, 600);
+
+			image.___scrollWatcher.enterViewport(function() {
+				// load images if not already there
+				_this.loadSelectionsImage(image)
+			});
+
+		}
+
+	},
+
+	unBindImageScrollListener: function(image) {
+		if (image.___scrollWatcher !== undefined && image.___scrollWatcher !== null) {
+			image.___scrollWatcher.destroy();
+			image.___scrollWatcher = undefined;
+		}
+	},
+
+	unBindImageScrollListeners: function(context) {
+		var _this = this;
+		_.each(context.el.querySelectorAll('img'), function(image){
+			_this.unBindImageScrollListener(image);
+		})
+	},
+
+	init: function(context) {
+
+		// this.context = context;
+		this.cutGalleryLengthInStackedSet(context);
+		this.bindSeeMoreLinks(context);
+		// this.content_path = this.getSelectionsContentPath();
+		// only bind to the following events on first init
+		if (this.first_init || this.is_blog) return;
+
+	   	var _this = this;
+
+	   	Cargo.Event.off('image_gallery_render_complete', this.formatGallery);
+	   	Cargo.Event.on('image_gallery_render_complete', this.formatGallery, this);
+
+	   	// Cargo.Event.off('image_gallery_init_complete', this.reInitLightboxByPID);
+	   	// Cargo.Event.on('image_gallery_init_complete', this.reInitLightboxByPID, this);
+
+	   	Cargo.Event.off('image_gallery_rendered', this.bindCustomImageLoader);
+	   	Cargo.Event.on('image_gallery_rendered', this.bindCustomImageLoader, this);
+
+
+	   	var pidarr = []
+	   	pidarr.push(context.model.get('id'))
+	   	// this.reInitLightboxByPID(pidarr);
+
+	   	// if navigation occurs, allow init to happen again	
+	   	Cargo.Event.once('add_history', _.bind(function(){
+	   		this.first_init = false;
+	   	},this));
+
+	   	this.first_init = true;
+		   
+	},
+
+	initBlogGallery: function(context) {
+
+		this.context = context;
+
+		if (this.first_init) return;
+		this.is_blog = true;
+
+	   	var _this = this;
+
+	   	Cargo.Event.off('image_gallery_render_complete', this.formatGallery);
+	   	Cargo.Event.on('image_gallery_render_complete', this.formatGallery, this);
+
+   	 	Cargo.Event.once('add_history', _.bind(function(){
+	   		this.first_init = false;
+	   	},this));
+
+	   	this.first_init = true;
+	},
+
+	unBindSelections: function(context) {
+
+		var _this = this;
+		
+		this.is_blog = false;
+		this.first_init = false;
+
+		Cargo.Event.off('image_gallery_render_complete', this.formatGallery);
+		// Cargo.Event.off('image_gallery_init_complete', this.reInitLightboxByPID);
+		Cargo.Event.off('image_gallery_rendered', this.bindCustomImageLoader);
+
+			
+	},
+
+	reInitLightboxByPID: function(imageGallery) {
+			var PID = parseInt(imageGallery.$el.closest('[data-id]').attr('data-id'));
+   			var pageView = Cargo.Helper.GetPageViewById(PID);
+   			if (pageView !== undefined) {
+   				pageView.setupGalleryLightbox(imageGallery);	
+   			} else {
+   				setTimeout(function(){
+	   					var pageView =  Cargo.Helper.GetPageViewById(PID);
+	   					if (pageView !== undefined) {
+		   					pageView.setupGalleryLightbox(imageGallery);	
+	   					}
+	   				
+   				}, 10)
+   			}
+
+   	},
+
+	formatGallery: function(imageGallery) {
+
+		var img_gal_pageid = imageGallery.Subview.$el.closest('[data-id]').attr('data-id');
+
+		if (this.is_blog && (parseInt(img_gal_pageid) < 6799167)) {
+			return;
+		}
+
+		this.formatGalleryCaptions(imageGallery.Subview.$el);
+		this.formatGalleryImages(imageGallery.Subview.$el);
+
+		if (!this.is_blog) {
+			this.bindImageZoomBehavior(imageGallery.Subview.$el);	
+		}
+		
+
+		$(imageGallery.el).addClass('selections_formatted')
+		
+   	},
+
+   	bindImageZoomBehavior: function(imageGalleryElement) {
+   		if (Cargo.Homepage.Helpers.isAdminEdit()) return;
+   		
+   		var _this = this;
+
+   		$(imageGalleryElement).click(function(e){
+
+   		    if (lightbox && lightbox.activeGallery) {
+
+   		    	lightbox.activeGallery.listen('afterChange', _.bind(function() {
+
+   		    		// and get the index of the current image
+   		    		var mid = $(lightbox.activeGallery.currItem.el).attr('data-mid');
+   		    		// this.currentLightboxMID = mid;
+
+   		    		// scroll to the image in the viewport
+   		    		lightbox.activeGallery.options.animatedCloseOnScroll = false;
+   		    		setTimeout(_.bind(function(){
+   		    			lightbox.activeGallery.options.closeOnScroll = true;
+   		    		},lightbox), 450)
+
+   		    		_this.scrollToImg(mid)
+
+   		    	}, this));	
+
+   		    	lightbox.activeGallery.listen('destroy', _.bind(function() {
+   		    	}, this));
+   		    }
+   		    
+
+   		    if (!Cargo.Homepage.Helpers.isAdminEdit() && window.location.pathname.toLowerCase() == '/selections') {
+   		    	if (lightbox.activeGallery !== undefined) {
+   		    		lightbox.activeGallery.items.length = 16;	
+   		    	}
+   		    }
+
+   		});
+
+   	},
+
+   	scrollToImg: function(mid) {
+
+   		var imgEl = $('img[data-mid="'+mid+'"]');
+
+   		if (imgEl.length < 1){
+   			return
+   		}
+
+   		var imgRect = imgEl.get(0).getBoundingClientRect();
+
+   		$('body, html').stop().animate({
+   			scrollTop: (window.scrollY+imgRect.top)+(window.innerHeight*-.5)+(imgRect.height*.5)+'px'
+   		}, 400);
+
+
+   	},
+
+   	bindSeeMoreLinks: function(context){
+
+
+   		$('a.seemore', context.$el).on('click', _.bind(function(){
+   			this.see_more_clicked = true;
+
+   			Cargo.Helper.ScrollToTop = _.wrap(Cargo.Helper.ScrollToTop, function(original) {
+   				var args = Array.prototype.slice.call(arguments);
+				args.shift();
+				original.apply(this, args);
+
+   				if (Cargo.Homepage.Selections && Cargo.Homepage.Selections.see_more_clicked) {
+					Cargo.Homepage.Selections.see_more_clicked = false;	
+   				}
+   			});
+
+   		},this));
+   	},
+
+	cutGalleryLengthInStackedSet: function(context) {
+
+		// when on the /selections page — cut the image gallery to the first 12 so we don't load the entire thing
+		if (!Cargo.Homepage.Helpers.isAdminEdit() && window.location.pathname.toLowerCase() == '/selections') {
+			var galleryImages = context.$el.find('.image-gallery img');
+			galleryImages.slice(-galleryImages.length + 16).remove();
+
+		}
+	},
+
+	formatGalleryCaptions: function(galleryElement) {
+
+		var _this = this;
+
+		_.each($('.gallery_image_caption', galleryElement), function(caption){
+			if ($(caption).is('.selections_format')) return;
+
+			if ($(galleryElement).closest('[data-id="'+pid_list.for_sale+'"]').length > 0) {
+				$(caption).addClass('selections_format')
+				return;
+			}
+
+			var text = $(caption).text();
+
+
+		    var strings = text.split(" ");
+		    var domain_name;
+		    var instagram_handle;
+
+		    // first strip out instagram because we know it is the most unique
+		    _.each(strings, function(string, index){
+
+		    	if (string) {
+		    		if (string.match('@')) {
+		    			var insta_index = strings.indexOf(string);
+			    		if (insta_index > -1) {
+			    			instagram_handle = string;
+			    			strings.splice(insta_index, 1);
+			    		}
+		    		}
+		    	}
+		    })
+
+	        _.each(strings, function(string, index){
+
+	        	if (string) {
+	        		// then look for and remove the domain name
+	        		if(/[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+/.test(string)) {
+        				domain_name = string;
+        				var domain_index = strings.indexOf(string);
+        				if (domain_index > -1) {
+        				  strings.splice(domain_index, 1);
+        				}
+        			}
+
+	        	}
+
+	        })
+
+
+	        // join the remaining strings to create the name
+	        var name = strings.join(' ');
+
+	        setTimeout(function(){
+	        	var insta_link = instagram_handle !== undefined && instagram_handle !== '' ? 'https://www.instagram.com/'+instagram_handle.replace('@', '') : '';
+	        	var insta_link_html = insta_link == '' ? '' : '<a href="'+insta_link+'" target="_blank" class="selection_insta">'+instagram_handle+'</a>';
+	        	var cargo_site_link  = domain_name !== undefined && domain_name !== '' && name !== undefined && name !== '' ? '<a href="https://'+domain_name+'" target="_blank" class="selection_url">'+name+'</a><br>' : '';
+
+	        	if (domain_name) {
+	        		$(caption)
+	        			.addClass('selections_format')
+	        			.html(cargo_site_link+insta_link_html);
+
+
+	        		if (_this.is_blog && !Cargo.Homepage.Helpers.isAdminEdit()) {
+
+	        			$(caption).prev('.gallery_card_image').find('img').wrap('<a href="https://'+domain_name+'" class="selection_gallery_img_link" target="_blank"></a>');
+
+	        			var parent = $(caption).prev('.gallery_card_image').find('img').closest('.gallery_card');
+	        			if ($(parent).length > 0 && $(parent).is('a')) {
+	        				$(parent).removeAttr('href');
+	        			}
+	        		}
+	        	} else {
+
+	        		// no domain name? do nothing (leave the caption as it was)
+	        	}
+				
+				
+
+	        }, 100)
+		});
+
+	},
+
+
+	formatGalleryImages: function(galleryElement) {
+
+		var _this = this;
+
+		_.each($('.gallery_card_image', galleryElement), function(gallery_card){
+
+			var image = $(gallery_card).find('img');
+			if (!_this.is_blog) {
+				image.addClass('image-zoom')	
+			}
+
+			if (parseInt(gallery_card.style.paddingBottom) > 100) {
+				$(gallery_card).addClass('portrait')
+			}
+			
+		});
+
+
+	},
+
+	preventSelectionsFullRenderInAdmin: function (args){
+		// hack to not load the full set while inside the admin for /selections pages
+		if (Cargo.Homepage.Helpers.isAdminEdit()) {
+
+			var pid = args[1];
+			var model = Cargo.Helper.GetPageViewById(pid);
+
+			var modelToRender = Cargo.View.Content.collection.getModelByPurl(pid, true && true);
+
+			var model = Cargo.Collection.Scaffolding.getModel({ id: pid_list.selections_set });
+			// trick the model to think the set is not stacked
+			model.set('stack', false);
+		}
+	}
+
+
+}
+
+
+
+
+
+/***************************
+	GLOBAL PREVIEW
+	When clicking on a site and previewing in an IFRAME with an Interface wrapper
+***************************/
+
+var Preview = function() {
+	var self = this;
+
+	var data = {
+		open: false,
+		mobile: false,
+		narrowWidth: null,
+		currentURL: null,
+		currentID: null,
+	}
+
+	var $el = $('<iframe>')
+		.addClass('signup_frame')
+
+	var $screen = $('<div>')
+		.addClass('signup_bg')
+		.attr('data-example-close', '')
+
+	var $loader = $('<div>')
+		.addClass('signup_bg_loader')
+		.append('<div class="loading_animation pulsing gray no-delay" style="position: absolute; z-index: 998; top: calc(50% - 10px); left: calc(50% - 10px);"><div><svg class="loading" width="500" height="500" viewBox="0 0 500 500"><path d="M495,201.19a257.61,257.61,0,0,0-14.19-47.05,260.51,260.51,0,0,0-23.17-42.9,253.09,253.09,0,0,0-69.06-68.85,245.21,245.21,0,0,0-42.88-23A227.1,227.1,0,0,0,298.88,5.26,241.81,241.81,0,0,0,249.5.31V0C111.7,0,0,111.7,0,249.5H.32a242.23,242.23,0,0,0,4.93,49.36A227.43,227.43,0,0,0,19.82,345a247.09,247.09,0,0,0,23,43,253.65,253.65,0,0,0,68.87,68.85,260.28,260.28,0,0,0,43,23.19,258.59,258.59,0,0,0,47,14.17,254.37,254.37,0,0,0,47.86,4.69V499c7.64,0,15.16-.47,22.62-1.14.88-.08,1.77-.05,2.66-.14,1.3-.13,2.56-.41,3.86-.56,6.82-.77,13.63-1.66,20.42-3A255.67,255.67,0,0,0,345.86,480a246.52,246.52,0,0,0,42.95-23.19A253.15,253.15,0,0,0,457.64,388a246.55,246.55,0,0,0,23.21-43A256.9,256.9,0,0,0,495,298.19a250.34,250.34,0,0,0,4.71-48.69A246.63,246.63,0,0,0,495,201.19ZM484.14,249.5H249.5V483.27a238.72,238.72,0,0,1-44.83-4.37,245.21,245.21,0,0,1-44-13.26,246.55,246.55,0,0,1-40.28-21.75,237.64,237.64,0,0,1-64.61-64.62,231.25,231.25,0,0,1-21.6-40.37,212.18,212.18,0,0,1-13.63-43.15,226.46,226.46,0,0,1-4.61-46.25H249.5V15.92c.2,0,.39,0,.59,0a227.57,227.57,0,0,1,45.79,4.67,212.11,212.11,0,0,1,43.79,13.26,228.85,228.85,0,0,1,40.22,21.52,237.92,237.92,0,0,1,64.82,64.6,246.65,246.65,0,0,1,21.72,40.2,243.26,243.26,0,0,1,13.28,44.09,231,231,0,0,1,4.43,45.26Z"/></svg></div></div>')
+
+	var $nav = $('<div>')
+		.addClass('hide signup_nav admin-wrapper')
+
+	var navStyles = {
+		display: 'block',
+		borderLeft: '1px solid rgba(255, 255, 255, 0.2)',
+		height: '5rem',
+		width: '5rem'
+	}
+
+	$template_nav = $('<div>')
+		.addClass('template_nav')
+		.appendTo($nav)
+
+	$('<div>')
+		.attr('data-example-prev', '')
+		.addClass('signup_prev')
+		.html('')
+		.appendTo($template_nav)
+
+	$('<div>')
+		.addClass('signup_next')
+		.attr('data-example-next', '')
+		.html('')
+		.appendTo($template_nav)
+
+	$('<div>')
+		.addClass('signup_mobile')
+		.attr('data-example-mobile', '')
+		.append($('<img>', {
+			src: '/_gfx/rotate.svg'
+		}))
+		.appendTo($template_nav)
+
+	$('<a>')
+		.addClass('signup_title')
+		.attr('target', '_blank')
+		.attr('data-example-title', '')
+		.appendTo($template_nav)
+
+// 	if (localStorage.getItem('new_templates_1021') === 'true') {
+// 		$nav.addClass('newtemplatetest')
+// 		$('<div data-toggle="desktop" data-example-mobile class="desktop active"><svg width="39" height="46" viewBox="0 0 39 46" fill="none"><rect width="39" height="46" fill="white"/><g><path d="M27 34H12V36H27V34Z" fill="black"/><path d="M34.5 11H4.5C3.7 11 3 11.7 3 12.5V30.5C3 31.3 3.7 32 4.5 32H34.5C35.3 32 36 31.3 36 30.5V12.5C36 11.7 35.3 11 34.5 11ZM35 30.5C35 30.8 34.8 31 34.5 31H4.5C4.2 31 4 30.8 4 30.5V12.5C4 12.2 4.2 12 4.5 12H34.5C34.8 12 35 12.2 35 12.5V30.5Z" fill="black"/></g></svg></div>').appendTo($template_nav)
+// 
+// 		$('<div data-toggle="mobile" data-example-mobile class="mobile"><svg width="21" height="46" viewBox="0 0 21 46" fill="none"><rect width="21" height="46" fill="white"/><path d="M15.5 11H5.5C4.1 11 3 12.1 3 13.5V32.5C3 33.3 3.4 34 4 34.5C4.4 34.8 4.9 35 5.5 35H15.5C16.1 35 16.6 34.8 17 34.5C17.6 34 18 33.3 18 32.5V13.5C18 12.1 16.9 11 15.5 11ZM17 24.9V32.5C17 33.3 16.3 34 15.5 34H5.5C4.7 34 4 33.3 4 32.5V24.9V13.5C4 12.7 4.7 12 5.5 12H15.5C16.3 12 17 12.7 17 13.5V24.9Z" fill="black"/></svg></div>')
+// 			.appendTo($template_nav)
+// 
+// 	} else {
+// 		$('<div data-toggle="desktop" data-example-mobile class="desktop active"><svg x="0px" y="0px" viewBox="0 0 33 24" style="enable-background:new 0 0 33 24; width: 33px; height: 24px;" xml:space="preserve"><g><rect x="9" y="22" width="15" height="2"></rect><path d="M31.5,0h-30C0.7,0,0,0.7,0,1.5v18C0,20.3,0.7,21,1.5,21h30c0.8,0,1.5-0.7,1.5-1.5v-18C33,0.7,32.3,0,31.5,0z M32,19.5c0,0.3-0.2,0.5-0.5,0.5h-30C1.2,20,1,19.8,1,19.5v-18C1,1.2,1.2,1,1.5,1h30C31.8,1,32,1.2,32,1.5V19.5z"></path></g></svg></div>').appendTo($template_nav)
+// 
+// 		$('<div data-toggle="phone" data-example-mobile class="mobile"><svg width="15" height="24" viewBox="0 0 15 24" fill="none"><path d="M12.5 0H2.5C1.1 0 0 1.1 0 2.5V21.5C0 22.3 0.4 23 1 23.5C1.4 23.8 1.9 24 2.5 24H12.5C13.1 24 13.6 23.8 14 23.5C14.6 23 15 22.3 15 21.5V2.5C15 1.1 13.9 0 12.5 0ZM14 13.9V21.5C14 22.3 13.3 23 12.5 23H2.5C1.7 23 1 22.3 1 21.5V13.9V2.5C1 1.7 1.7 1 2.5 1H12.5C13.3 1 14 1.7 14 2.5V13.9Z" fill="black"></path></svg></div>')
+// 			.appendTo($template_nav)
+// 
+// 	}
+
+	$('<div data-toggle="desktop" data-example-mobile class="desktop active"><svg width="39" height="46" viewBox="0 0 39 46" fill="none"><rect width="39" height="46" fill="white"/><g><path d="M27 34H12V36H27V34Z" fill="black"/><path d="M34.5 11H4.5C3.7 11 3 11.7 3 12.5V30.5C3 31.3 3.7 32 4.5 32H34.5C35.3 32 36 31.3 36 30.5V12.5C36 11.7 35.3 11 34.5 11ZM35 30.5C35 30.8 34.8 31 34.5 31H4.5C4.2 31 4 30.8 4 30.5V12.5C4 12.2 4.2 12 4.5 12H34.5C34.8 12 35 12.2 35 12.5V30.5Z" fill="black"/></g></svg></div>').appendTo($template_nav)
+
+	$('<div data-toggle="phone" data-example-mobile class="mobile"><svg width="21" height="46" viewBox="0 0 21 46" fill="none"><rect width="21" height="46" fill="white"/><path d="M15.5 11H5.5C4.1 11 3 12.1 3 13.5V33.5C3 34.3 3.4 35 4 35.5C4.4 35.8 4.9 36 5.5 36H15.5C16.1 36 16.6 35.8 17 35.5C17.6 35 18 34.3 18 33.5V13.5C18 12.1 16.9 11 15.5 11ZM17 24.9V33.5C17 34.3 16.3 35 15.5 35H5.5C4.7 35 4 34.3 4 33.5V24.9V13.5C4 12.7 4.7 12 5.5 12H15.5C16.3 12 17 12.7 17 13.5V24.9Z" fill="black"/></svg></div>')
+		.appendTo($template_nav)
+	
+
+	$('<div>')
+		.addClass('signup_close')
+		.attr('data-example-close', '')
+		.html('<svg width="20px" height="20px"><g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" opacity=".6"><g id="Group" transform="translate(1.000000, 1.000000)" stroke="#FFFFFF" stroke-width="2"><path d="M0,0 L15,15" id="Path-3"></path><path d="M0,0 L15,15" id="Path-3" transform="translate(7.500000, 7.500000) rotate(-270.000000) translate(-7.500000, -7.500000) "></path></g></g></svg>')
+		.appendTo($template_nav)
+
+	$('<a>')
+		.addClass('signup_link')
+		.attr('target', '_blank')
+		.attr('data-example-start', '')
+		.attr('href', '#')
+		.appendTo($nav)
+		.html('<span>Start with this Template</span>')
+
+
+	/**
+	 * Click
+	 */
+	function clickEvents(e) {
+
+		if ($(e.target).is('.slick-arrow')) return;
+		if ($(e.currentTarget).is('.static')) return;
+
+		if ($(this).closest('.thumbnail').length > 0) {
+			self.open($(this).attr('data-siteurl'), false, $(this).attr('data-id'))
+		} else {
+			self.open($(this).attr('data-siteurl'))
+		}
+		
+		if (e) {
+			e.preventDefault()
+		}
+	}
+
+	this.updatePreview = function updatePreview(e) {
+		e.preventDefault();
+		var id = $(e.currentTarget).attr('data-inuse-template');
+		var template_url = Cargo.Homepage.SitesInUse.getProgenitorAttribute('id', 'url', id);
+		var template_name = Cargo.Homepage.SitesInUse.getProgenitorAttribute('id', 'name', id);
+		this.open(template_url, false, false)
+		this.updateNav(template_url, id, template_name, false)
+	}
+
+	this.getDimensions = function getDimensions() {
+		var defaultWidth = window.innerWidth - 60;
+		var defaultHeight = window.innerHeight - 60 - 46;
+		var maxWidth = defaultWidth * .625 < defaultHeight ? defaultWidth : defaultHeight * 1.6 ;
+		var maxHeight =  defaultWidth * .625 < defaultHeight ? defaultWidth * .625 : defaultHeight;
+
+		return {maxHeight: maxHeight, maxWidth: maxWidth};
+	}
+
+	/**
+	 * Open
+	 */
+	this.open = function open(url, from_hash, template_id) {
+
+		if (from_hash) {
+			var templateModel = _.filter(Cargo.Homepage.templateCollection.toJSON(), function(templateModel) {
+				var hashSubdomain = url.replace(/https:\/\//, '').split('.')[0];
+				return templateModel.websafe_name_clean === hashSubdomain;
+			});
+
+			if (templateModel.length !== 0) {
+				url = templateModel[0].url;
+			}
+		}
+		
+		data.scrollTop = document.body.scrollTop;
+
+		document.body.parentNode.insertBefore($nav[0], null);
+
+		$('body').on('keydown.preview', function(e) {
+
+			if (!self.key_event) {
+				// esc to close
+				if (e.which == 27) {
+					// if signup modal is open, don't esc
+					if (Cargo.Homepage.signup_modal == 'open') return;
+					e.preventDefault();
+					e.stopImmediatePropagation();
+
+					self.key_event = true;
+					self.close()
+				}
+
+				if (e.which == 37 || e.which == 39) {
+					e.preventDefault();
+					e.stopImmediatePropagation();
+				}
+			}
+		})
+
+
+		if (data.narrowWidth || Cargo.Helper.isMobile()) {
+			window.location = url
+			return
+		}
+
+		if (!data.open) {
+			document.body.parentNode.insertBefore($screen[0], null);
+			document.body.parentNode.insertBefore($loader[0], null);
+		}
+
+
+		$('html, body').addClass('templates_view')
+
+		$nav.addClass('flex').removeClass('hide')
+
+		data.currentURL = url;
+		data.currentID = $('[data-siteurl="' + url + '"]').closest('[data-tid]').attr('data-tid');
+
+		$('[data-example-active]').removeAttr('data-example-active')
+		$('[data-examples] [data-siteurl="' + url + '"]').attr('data-example-active', '')
+
+
+		var dimensions = self.getDimensions();
+		$el.attr('style', 'width: '+dimensions.maxWidth+'px; height: '+dimensions.maxHeight+'px;');
+		$el.on('load', function(){ $el.addClass('loaded'); })
+		$el.attr('src', url + '#throttle-scroll-monitor')
+		$('[data-example-title]').attr('href', url).html('Open in New Tab ↗')
+
+		// Append the frame
+		document.body.parentNode.insertBefore($el[0], null);
+		$('.signup_link').css('left', $('.signup_frame')[0].getBoundingClientRect().left)
+
+		if (!from_hash) {
+
+			document.body.style.visibility = 'hidden';
+			document.body.style.overflow = 'hidden';
+
+			// get the websafe name without dashes — add the hash to url
+			var hash_name = Cargo.Homepage.SitesInUse.getProgenitorAttribute('url','websafe_name_clean', url);
+				hash_name = url.match('untitled') ? 'untitled' : hash_name;
+				data.currentTemplate = hash_name;
+
+			setTimeout(function(){
+				history.pushState({}, document.title, window.location.href.split('#')[0] + '#' + hash_name);	
+			}, 50);
+
+			// send template click behavior data to google
+			Cargo.Analytics.trackevent('template_click', hash_name);
+			
+
+		} else {
+
+			document.body.style.visibility = 'hidden';
+			document.body.style.overflow = 'hidden';
+			data.scrollTop = undefined;
+
+			// let scrollMonitor load the images
+			setTimeout(function() {
+				document.body.style.visibility = '';
+				if (data.open) {
+					document.body.style.visibility = 'hidden';
+				}
+			}, 1500);
+		}
+
+		var preventBackFailure = function() {
+			window.removeEventListener('popstate', preventBackFailure);
+			self.close();
+		}
+		window.addEventListener('popstate', preventBackFailure);
+
+		self.key_event = false;
+		data.open = true
+	}
+
+	this.updateNav = function(url, id, title, in_use) {
+
+		if (in_use) {
+			$nav.find('.signup_link')
+				.html('Made with the <span>' + title + '</span> Template')
+				.removeAttr('data-example-start')
+				.attr('data-inuse-template', id);	
+		} else {
+			$nav.find('.signup_link')
+				.html('<span>Start with this Template</span>')
+				.removeAttr('data-inuse-template')
+				.attr('data-example-start', '');
+		}
+		
+
+	}
+
+	/**
+	 * Close
+	 */
+	this.close = function close(e) {
+
+		document.body.style.overflow = '';
+		document.body.style.visibility = '';
+
+		$el.removeClass('loaded').remove()
+		$screen.remove()
+		$loader.remove()
+		$('.signup_nav_border').remove();
+
+		$('html, body').removeClass('templates_view');
+		$(document).trigger('resize');
+
+		$('[data-example-active]').removeAttr('data-example-active')
+		$nav.removeClass('flex').addClass('hide')
+
+		$('body').off('keydown.preview');
+		self.key_event = false;
+
+		data.open = false;
+		data.mobile = false;
+
+		$('[data-example-mobile]').removeClass('active');
+		$('[data-toggle="desktop"]').addClass('active');
+
+		if (data.scrollTop !== undefined) {
+			$('body').scrollTop(data.scrollTop);
+			data.scrollTop = undefined;
+		}
+
+
+
+		history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+
+		if (e) {
+			e.preventDefault()
+		}
+	}
+
+	/**
+	 * Next
+	 */
+	this.next = function next() {
+
+		var next_item = this.preview_array.indexOf(parseInt(data.currentID)) + 1;
+		var next_id = this.preview_array[next_item] !== undefined ? this.preview_array[next_item] : this.preview_array[0];
+
+		$('body').off('keydown.preview');
+		var $next = $('.template_wrapper[data-id="' + next_id + '"]');
+
+		self.open($next.attr('data-siteurl'))
+	}
+
+	/**
+	 * Prev
+	 */
+	this.prev = function prev() {
+		var prev_item = this.preview_array.indexOf(parseInt(data.currentID)) - 1;
+		var prev_id = this.preview_array[prev_item] !== undefined ? this.preview_array[prev_item] : this.preview_array[this.preview_array.length - 1];
+
+		$('body').off('keydown.preview');
+		var $prev = $('.template_wrapper[data-id="' + prev_id + '"]');
+
+		self.open($prev.attr('data-siteurl'))
+	}
+
+	/**
+	 * Mobile
+	 */
+	this.mobile = function mobile(e) {
+
+		var type = $(e.currentTarget).attr('data-toggle');
+
+		// return if clicking on active one
+		if (!data.mobile && type == 'desktop' || data.mobile && type == 'phone') {
+			return;
+		}
+
+		$('[data-example-mobile]').removeClass('active')
+		$(e.currentTarget).addClass('active')
+
+		if (data.mobile) {
+			var dimensions = self.getDimensions();
+			$el.attr('style', 'width: '+dimensions.maxWidth+'px; height: '+dimensions.maxHeight+'px;');
+
+			if ($('.signup_link').length !== 0 && $('.signup_frame').length !== 0) {
+				$('.signup_link').css('left', $('.signup_frame')[0].getBoundingClientRect().left)
+			}
+			$loader.css('width', '')
+			data.mobile = false
+		} else {
+			$el.css({'width': 'calc(75vh - 15rem)', 'height': ''})
+			$loader.css('width', 'calc(75vh - 15rem)')
+			data.mobile = true
+		};
+
+		$el[0].contentWindow.postMessage({'homepageResize': 'true'}, '*');
+
+		// fix a safari layout rendering bug
+		// $('.template_nav').css('width', window.innerWidth + 1);
+		// $('.template_nav').css('width', window.innerWidth - 1);
+		e.preventDefault()
+	}
+
+	/**
+	 * Resize
+	 */
+	this.resize = function resize() {
+// 		var width = window.innerWidth <= 600
+// 
+// 		if (data.narrowWidth !== width) {
+// 			if (width) {
+// 				self.close()
+// 			}
+// 		}
+// 
+// 		data.narrowWidth = width
+		if (!data.mobile) {
+			var dimensions = self.getDimensions();
+			$el.attr('style', 'width: '+dimensions.maxWidth+'px; height: '+dimensions.maxHeight+'px;');
+
+			if ($('.signup_link').length !== 0 && $('.signup_frame').length !== 0) {
+				$('.signup_link').css('left', $('.signup_frame')[0].getBoundingClientRect().left)
+			}
+		}
+		
+	}
+
+	/**
+	 * Start
+	 */
+	this.start = function(e) {
+
+		e.preventDefault();
+
+		if (typeof __cargo_maint__ !== 'undefined' && __cargo_maint__ === true) {
+
+			Cargo.Modal.Alert({
+				message: "Sorry, we are performing scheduled maintenance until 10PM PST."
+			})
+
+			document.body.style.overflow = 'hidden';
+			document.body.style.visibility = 'visible';
+
+			Cargo.Event.once('confirm_modal:close', function(){
+				
+				Cargo.Homepage.signup_modal = 'close';
+				$('body').off('keydown.signup_modal');
+
+				document.body.style.overflow = '';
+				document.body.style.visibility = 'hidden';
+
+				if (data.mobile) {
+					$loader.css('width', 'calc(75vh - 10rem)')	
+				}
+
+				$nav.find('.signup_link').html('<span>Start with this Template</span>');
+			});
+
+			return;
+		}
+
+		$loader
+		.html('<div class="loading_animation pulsing gray no-delay" style="position: absolute; z-index: 998; top: calc(50% - 10px); left: calc(50% - 10px);"><div><svg class="loading" width="500" height="500" viewBox="0 0 500 500"><path d="M495,201.19a257.61,257.61,0,0,0-14.19-47.05,260.51,260.51,0,0,0-23.17-42.9,253.09,253.09,0,0,0-69.06-68.85,245.21,245.21,0,0,0-42.88-23A227.1,227.1,0,0,0,298.88,5.26,241.81,241.81,0,0,0,249.5.31V0C111.7,0,0,111.7,0,249.5H.32a242.23,242.23,0,0,0,4.93,49.36A227.43,227.43,0,0,0,19.82,345a247.09,247.09,0,0,0,23,43,253.65,253.65,0,0,0,68.87,68.85,260.28,260.28,0,0,0,43,23.19,258.59,258.59,0,0,0,47,14.17,254.37,254.37,0,0,0,47.86,4.69V499c7.64,0,15.16-.47,22.62-1.14.88-.08,1.77-.05,2.66-.14,1.3-.13,2.56-.41,3.86-.56,6.82-.77,13.63-1.66,20.42-3A255.67,255.67,0,0,0,345.86,480a246.52,246.52,0,0,0,42.95-23.19A253.15,253.15,0,0,0,457.64,388a246.55,246.55,0,0,0,23.21-43A256.9,256.9,0,0,0,495,298.19a250.34,250.34,0,0,0,4.71-48.69A246.63,246.63,0,0,0,495,201.19ZM484.14,249.5H249.5V483.27a238.72,238.72,0,0,1-44.83-4.37,245.21,245.21,0,0,1-44-13.26,246.55,246.55,0,0,1-40.28-21.75,237.64,237.64,0,0,1-64.61-64.62,231.25,231.25,0,0,1-21.6-40.37,212.18,212.18,0,0,1-13.63-43.15,226.46,226.46,0,0,1-4.61-46.25H249.5V15.92c.2,0,.39,0,.59,0a227.57,227.57,0,0,1,45.79,4.67,212.11,212.11,0,0,1,43.79,13.26,228.85,228.85,0,0,1,40.22,21.52,237.92,237.92,0,0,1,64.82,64.6,246.65,246.65,0,0,1,21.72,40.2,243.26,243.26,0,0,1,13.28,44.09,231,231,0,0,1,4.43,45.26Z"/></svg></div></div>')
+		.addClass('generating')
+
+		if (data.mobile) {
+			$loader.addClass('generating').css('width', '')	
+		}
+		
+		$nav.find('.signup_link').html('');
+
+		Cargo.Modal.Block({message: ''});
+		
+		Cargo.Modal.blocked = false;
+		Cargo.Modal.$el.addClass('signup')
+
+		Cargo.Event.once('confirm_modal:close', function(){
+			
+			Cargo.Homepage.signup_modal = 'close';
+			$('body').off('keydown.signup_modal');
+
+			document.body.style.overflow = '';
+			document.body.style.visibility = 'hidden';
+
+			if (data.mobile) {
+				$loader.css('width', 'calc(75vh - 10rem)')	
+			}
+
+			$nav.find('.signup_link').html('<span>Start with this Template</span>');
+		});
+
+		Cargo.Analytics.trackevent('signup_template', data.currentTemplate);
+
+		require(['/_jsapps/admin/_models/adminsite.js'], _.bind(function(AdminSiteModel) {
+
+				data.AdminSite = new AdminSiteModel();
+				data.AdminSite.set('template_id', data.currentID);
+
+				data.AdminSite.save({}, {
+					success: _.bind(function(model, response, options) {
+
+
+						if (response.length != 0) {
+
+							var uid = model.get('sites_uid'),
+								muid = model.get('master_muid'),
+								progress_id = model.get('progress_id'),
+								is_migration_flow = Cargo.Homepage.is_c1_signup === true ? '?is_migration_flow': '',
+								auth_context = __cargo_context__ === 'staging' ? 'dev.' : '';
+
+							var frameURL = 'https://'+auth_context+homepageBaseDomain+'/newsitesignup/'+uid+'/'+muid+'/'+progress_id+'?template_id='+data.currentID+is_migration_flow;
+
+							Cargo.Modal.$el.find('.confirm-box')
+								.html('<iframe src="' + frameURL + '"></iframe>');
+								
+							Cargo.Modal.$el.find('iframe').css({
+								'width': '100%',
+								'height': 'calc(100% + 1px)',
+								'border': 'none'
+							});
+
+							Cargo.Homepage.signup_modal = 'open';
+							$('body').on('keydown.signup_modal', function(e) {
+								// esc to close,
+								if (e.which == 27) {
+									e.preventDefault();
+								}
+							});
+
+							setTimeout(function(){
+								$loader.removeClass('generating')
+							}, 250)
+
+							document.body.style.overflow = 'hidden';
+							document.body.style.visibility = 'visible';
+
+							window.addEventListener("message", (event) => {
+
+								if (event.data.type === 'command') {
+									Cargo.Homepage.LoginFrame[event.data.message]();
+								}
+
+							}, false);
+
+						}
+
+					}, this),
+					error: _.bind(function(model, response, options) {
+
+						var error = $.parseJSON(response.responseText);
+
+						if (error.length != 0) {
+							alert(error.message);
+						}
+
+					}, this)
+				});
+
+		}, this));
+
+	};
+
+	this.requestStartProgress = function() {
+
+			this.requests++;
+
+			$.ajax({
+				method: 'POST',
+				dataType: 'json',
+				url: '/dispatch/siteservices/checkSiteCopyStatus',
+				data: {
+					new_site_uid: data.AdminSite.get('sites_uid'),
+					template_site_uid: data.AdminSite.get('template_id'),
+				    progress_id: data.AdminSite.get('progress_id')
+				},
+				success: _.bind(function(data) {
+
+					if (data.error && data.error.length > 0) {
+						return;
+					}
+
+					var timeOutLength = this.requests > 100 ? 1500 : Math.random() * 500 + 250;
+
+					clearTimeout(data.requestTimeout);
+
+					data.requestTimeout = setTimeout(_.bind(this.requestStartProgress, this), timeOutLength);
+
+					if (data && data.jdata) {
+
+						this.displayCompletionStatus(data.jdata)
+
+					}
+
+				}, this),
+				error: _.bind(function() {
+
+					// better luck next call?
+					var timeOutLength = this.requests > 100 ? 1500 : Math.random() * 500 + 250;
+
+					clearTimeout(data.requestTimeout);
+
+					data.requestTimeout = setTimeout(_.bind(this.requestStartProgress, this), timeOutLength);
+
+				}, this)
+			});
+
+		},
+
+		this.displayCompletionStatus = function(jdata) {
+
+			var percentage = jdata.percent;
+
+			// emulate the first 10 percent, as it can take
+			if (percentage < 10) {
+				percentage = Math.min(this.requests * 0.1, 10);
+			}
+
+			$nav.find('[data-progress] .progress-indicator').css('width', percentage + '%');
+			$nav.find('[data-progress] .progress-percentage').text(Math.round(percentage) + '%');
+
+			if (percentage >= 100) {
+
+				clearTimeout(data.requestTimeout);
+
+				setTimeout(_.bind(function() {
+
+					window.onbeforeunload = null;
+					document.location.href = data.redirect_url;
+
+				}, this), 1000);
+
+			}
+		}
+
+
+	/**
+	 * On
+	 */
+	this.on = function on() {
+
+		if (Cargo.Homepage.Helpers.isAdminEdit()) return;
+		// make sure there isn't a double bind
+		self.off()
+
+		$(document).on('click.preview', '[data-example-close]', self.close);
+		$(document).on('click.preview', '.signup_bg', self.close);
+		$(document).on('click.preview', '[data-example-mobile]', self.mobile);
+		$(document).on('click.preview', '[data-example-next]', self.next);
+		$(document).on('click.preview', '[data-example-prev]', self.prev);
+		$('[data-examples] .template_wrapper').off('click.preview').on('click.preview', clickEvents);
+		$('[data-examples] .template_preview').off('click.preview').on('click.preview', clickEvents);
+		$(document).on('click.preview', '[data-example-start]', _.bind(self.start, self));
+		$(document).on('click.preview', '[data-inuse-template]', _.bind(self.updatePreview, self));
+		$(window).on('resize.preview', _.bind(self.resize, self))
+
+	}
+
+	this.off = function off() {
+		$(document).off('click.preview');
+		$(window).off('resize.preview');
+		$('[data-examples] .template_wrapper').off('click.preview');
+	}
+
+	return this
+}
+
+/**
+ * Validate the email address
+ * @param  {String} email Email address from the from
+ * @return {Bool}
+ */
+function validateEmail(email) {
+	var re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+	return re.test(email);
+}
+
+function validateForm() {
+
+	$('.error').removeClass('error');
+	$('#error').hide();
+
+	var value = $("[name='email']").val().trim();
+
+	// if empty or not a valid email
+	if (value == "" || !this.validateEmail(value)) {
+		this.displayErrorMessage('Not a valid Email Address', '#email');
+		return false;
+	}
+
+	this.signup_email = value;
+
+	return ($(".error", this.el).length == 0);
+
+}
+
+function displayErrorMessage(message, elem) {
+
+	$("[name='email']").addClass('error');
+
+	var error_message = $(elem, this.el).closest('.page').find('#error');
+
+	error_message
+		.text(message)
+		.show();
+
+	this.processing = false;
+
+}
+
+function enterKey(e) {
+	if (e.which == 13) {
+		e.preventDefault();
+		this.handleNewsletterSignup();
+	}
+}
+
+function handleNewsletterSignup() {
+	var _this = this;
+
+	// return if already processing
+	if (this.processing) {
+		return false;
+	}
+
+	if (!this.validateForm()) {
+		return false;
+	}
+
+	// show processing
+	// $('.processing').removeClass('hidden');
+	this.processing = true;
+
+
+	$.post('/dispatch/newsletter/subscribe', {
+		'email': _this.signup_email,
+	}, function(data) {
+
+		if (data.error.length > 0) {
+
+			_this.displayErrorMessage(data.error, '#email');
+
+			$('.processing').hide();
+
+			_this.processing = false;
+
+		} else if (data.jdata.success) {
+
+			$('form').hide();
+			$('#success')
+				.show();
+
+		}
+	}, "json");
+
+	return false;
+
+}
+
+
+Cargo.Homepage.HomeCustomizations = {
+	unbindCalled: false,
+	HomeInUsePageRendered: false,
+	filtered: false,
+	HomeInUseURL: 'https://dev.cargo.site/_api/v0/thumbnails/74?set_id='+pid_list.home_in_use_set,
+	HomeDinamoJSON: JSON.parse('[{"name":"Diatype Thin","webfontObj":{"cargo":{"families":["Diatype:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Diatype\'; font-style: normal; font-weight: 200;"},{"name":"Diatype Light","webfontObj":{"cargo":{"families":["Diatype:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Diatype\'; font-style: normal; font-weight: 300;"},{"name":"Diatype Regular","webfontObj":{"cargo":{"families":["Diatype:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Diatype\'; font-style: normal; font-weight: 400;"},{"name":"Diatype Medium","webfontObj":{"cargo":{"families":["Diatype:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Diatype\'; font-style: normal; font-weight: 500;"},{"name":"Diatype Bold","webfontObj":{"cargo":{"families":["Diatype:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Diatype\'; font-style: normal; font-weight: 700;"},{"name":"Diatype Mono Regular","webfontObj":{"cargo":{"families":["Diatype Mono:n4"]}},"styleStr":"font-family: \'Diatype Mono\'; font-style: normal; font-weight: 400;"},{"name":"Diatype Semi-Mono Regular","webfontObj":{"cargo":{"families":["Diatype Semi-Mono:n4"]}},"styleStr":"font-family: \'Diatype Semi-Mono\'; font-style: normal; font-weight: 400;"},{"name":"Favorit Light","webfontObj":{"cargo":{"families":["Favorit:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit\'; font-style: normal; font-weight: 200;"},{"name":"Favorit Book","webfontObj":{"cargo":{"families":["Favorit:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit\'; font-style: normal; font-weight: 300;"},{"name":"Favorit Regular","webfontObj":{"cargo":{"families":["Favorit:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit\'; font-style: normal; font-weight: 400;"},{"name":"Favorit Medium","webfontObj":{"cargo":{"families":["Favorit:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit\'; font-style: normal; font-weight: 500;"},{"name":"Favorit Bold","webfontObj":{"cargo":{"families":["Favorit:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit\'; font-style: normal; font-weight: 700;"},{"name":"Favorit Mono Light","webfontObj":{"cargo":{"families":["Favorit Mono:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit Mono\'; font-style: normal; font-weight: 200;"},{"name":"Favorit Mono Book","webfontObj":{"cargo":{"families":["Favorit Mono:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit Mono\'; font-style: normal; font-weight: 300;"},{"name":"Favorit Mono Regular","webfontObj":{"cargo":{"families":["Favorit Mono:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit Mono\'; font-style: normal; font-weight: 400;"},{"name":"Favorit Mono Medium","webfontObj":{"cargo":{"families":["Favorit Mono:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit Mono\'; font-style: normal; font-weight: 500;"},{"name":"Favorit Mono Bold","webfontObj":{"cargo":{"families":["Favorit Mono:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7"]}},"styleStr":"font-family: \'Favorit Mono\'; font-style: normal; font-weight: 700;"},{"name":"Monument Grotesk Thin","webfontObj":{"cargo":{"families":["Monument Grotesk:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7,n8,i8,n9,i9,n10,i10"]}},"styleStr":"font-family: \'Monument Grotesk\'; font-style: normal; font-weight: 200;"},{"name":"Monument Grotesk Light","webfontObj":{"cargo":{"families":["Monument Grotesk:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7,n8,i8,n9,i9,n10,i10"]}},"styleStr":"font-family: \'Monument Grotesk\'; font-style: normal; font-weight: 300;"},{"name":"Monument Grotesk Regular","webfontObj":{"cargo":{"families":["Monument Grotesk:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7,n8,i8,n9,i9,n10,i10"]}},"styleStr":"font-family: \'Monument Grotesk\'; font-style: normal; font-weight: 400;"},{"name":"Monument Grotesk Medium","webfontObj":{"cargo":{"families":["Monument Grotesk:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7,n8,i8,n9,i9,n10,i10"]}},"styleStr":"font-family: \'Monument Grotesk\'; font-style: normal; font-weight: 500;"},{"name":"Monument Grotesk Bold","webfontObj":{"cargo":{"families":["Monument Grotesk:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7,n8,i8,n9,i9,n10,i10"]}},"styleStr":"font-family: \'Monument Grotesk\'; font-style: normal; font-weight: 700;"},{"name":"Monument Grotesk Heavy","webfontObj":{"cargo":{"families":["Monument Grotesk:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7,n8,i8,n9,i9,n10,i10"]}},"styleStr":"font-family: \'Monument Grotesk\'; font-style: normal; font-weight: 800;"},{"name":"Monument Grotesk Black","webfontObj":{"cargo":{"families":["Monument Grotesk:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7,n8,i8,n9,i9,n10,i10"]}},"styleStr":"font-family: \'Monument Grotesk\'; font-style: normal; font-weight: 900;"},{"name":"Monument Grotesk Ultra","webfontObj":{"cargo":{"families":["Monument Grotesk:n2,i2,n3,i3,n4,i4,n5,i5,n7,i7,n8,i8,n9,i9,n10,i10"]}},"styleStr":"font-family: \'Monument Grotesk\'; font-style: normal; font-weight: 1000;"},{"name":"Monument Grotesk Mono Regular","webfontObj":{"cargo":{"families":["Monument Grotesk Mono:n4"]}},"styleStr":"font-family: \'Monument Grotesk Mono\'; font-style: normal; font-weight: normal;"},{"name":"Monument Grotesk Semi-Mono Regular","webfontObj":{"cargo":{"families":["Monument Grotesk Semi-Mono:n4"]}},"styleStr":"font-family: \'Monument Grotesk Semi-Mono\'; font-style: normal; font-weight: normal;"}]'),
+
+	setup: function(context){
+
+		this.context = context;
+
+		if (Cargo.Homepage.Helpers.isAdminEdit() || Cargo.Helper.IsAdminEdit()) return;
+
+		var _this = this;
+
+		this.$pageEl = context.$el;
+
+		if (!Cargo.Collection.Scaffolding.getContentOrPageModelByPid(pid_list.home_in_use)) {
+			Cargo.Collection.Scaffolding.fetchPageModel(
+				pid_list.home_in_use, {
+					done: function(pageModel){
+						_this.renderHomeInUsePage(pageModel);
+					}
+				}
+			);
+		} else {
+			var pageModel = Cargo.Collection.Scaffolding.getContentOrPageModelByPid(pid_list.home_in_use)
+			_this.renderHomeInUsePage(pageModel);
+		}
+		
+
+		Cargo.Event.on('pin_format_complete', this.setHomepageHeight, this)
+		Cargo.Event.on('add_history', this.unBindHomepageCustomizations, this);
+
+		this.setHomepageFitText();
+
+	},
+
+	setHomepageFitText: function() {
+		if ($("#site_builder").length !== 0) {
+			$("#site_builder").fitText(.685)	
+		}
+	},
+
+	unBindHomepageCustomizations: function(context) {
+
+		// don't unbind if we just rendered
+		if (this.renderTimer === undefined) {
+			if (this.HomeInUsePageRendered === true) {
+				this.HomeInUsePageRendered = false;
+				if (this.homeInUsePageView) {
+					this.homeInUsePageView.remove();
+				}
+				Cargo.Event.off('pin_format_complete', this.setHomepageHeight)
+				Cargo.Event.off('add_history', this.unBindHomepageCustomizations)
+			}
+		}
+		
+		
+	},
+
+	setHomepageHeight: function() {
+		var topPadding = undefined;
+		var bottomPadding = Cargo.View.PinnedBottom.pinCollection.findWhere({'id': pid_list.footer})?.get('page_height');
+		var joinedPadding = topPadding && bottomPadding ? topPadding + bottomPadding : topPadding ? topPadding : bottomPadding ? bottomPadding : 0;
+
+		this.$pageEl.css('min-height', 'calc(100vh - '+ joinedPadding +'px)');
+
+	},
+
+	renderHomeInUsePage: function(pageModel) {
+		var _this = this;
+
+		if (this.HomeInUsePageRendered === true) return;
+
+		var _this = this;
+		this.homeInUsePageView = Cargo.Core.PageviewFactory.constructPageView({model: pageModel})
+
+		$('.main_container')[0].appendChild(this.homeInUsePageView.el);
+		this.homeInUsePageView.render();
+
+		this.renderTimer = setTimeout(function(){
+			clearTimeout(this.renderTimer);
+			_this.renderTimer = undefined;
+		}, 150)
+
+		this.HomeInUsePageRendered = true;
+
+	},
+}
+
+
+Cargo.Homepage.Navigation = {
+	mainPaths: [],
+	mainLinks: [],
+	setupComplete: false,
+
+	setup: function(navModel) {
+		// already setup
+		if (this.setupComplete) return;
+
+		var _this = this;
+		// var navView = Cargo.Helper.GetPageViewById(navModel.get('id'));
+		var links = $('.nav a')
+
+		_.each(links, function(link){
+
+
+			if ($(link).attr('href') !== undefined && $(link).attr('href') !== '' ) {
+				var path = $(link).attr('href') == "#" && $(link).attr('rel') === 'home_page' ? 'Home' : $(link).attr('href');
+				_this.mainLinks.push({
+					$el: link,
+					path: path
+				});
+			}
+			
+		});
+
+
+		// checkActiveLinks
+		Cargo.o.view.Content.prototype.checkActiveLinks = _.wrap(Cargo.o.view.Content.prototype.checkActiveLinks, function(original) {
+			
+			var args = Array.prototype.slice.call(arguments);
+			args.shift();
+			original.apply(this, args);
+
+			var activePID = args[0];
+			var activePageModel = Cargo.Collection.Scaffolding.getContentOrPageModelByPid(activePID);
+
+			if (activePageModel !== undefined) {
+				var activePageSetID = activePageModel.get('set_id');
+				var parentSetModel = Cargo.Collection.Scaffolding.getContentOrPageModelByPid(activePageSetID);
+				var mainNavHasSelectedTab = false;
+
+				_.each(Cargo.Homepage.Navigation.mainLinks, function(link){
+
+
+					if (
+						activePageModel.get('project_url') == link.path
+						|| Cargo.Homepage.Helpers.hasParentSetByName(parentSetModel, link.path)
+					) {
+
+						// remove all classes
+						$('.nav a').removeClass('adjacent-left adjacent-right selected')
+						// add adjacent classes
+						$(link.$el).next('a').addClass('adjacent-right')
+						$(link.$el).prev('a').addClass('adjacent-left')
+						$(link.$el).addClass('selected');
+						// var mainLinkIndex = _.indexOf(Cargo.Homepage.Navigation.mainLinks, mainLink);
+						mainNavHasSelectedTab = true;
+					}
+				})
+
+				// if no selected links are found, remove all classes from all links
+				if (mainNavHasSelectedTab === false) {
+					$('.nav a').removeClass('adjacent-left adjacent-right selected')
+				}
+
+			}
+
+
+
+		});
+
+
+		$('.nav [rel="home_page"]').on('click', function(e) {
+			if (Cargo.Helper.IsOnHomepage()) {
+				// do not reload the homepage if it is active
+				e.preventDefault();
+				e.stopImmediatePropagation();
+			}
+		})
+		
+		_this.setupComplete = true;
+	}
+}
+
+
+Cargo.Homepage.Mobile = {
+
+	renderBlogOnMobile: function() {
+		var blogModel = Cargo.View.Content.collection.getSetOrPageModel({'title': 'Blog'});
+
+		if(!blogModel) {
+			return;
+		}
+
+		blogModel.paginate();
+
+		Cargo.View.Content.currentSet = Cargo.Core.SetViewFactory.constructSetView({
+			model: blogModel
+		});
+
+		Cargo.View.Content.activeContentModel = blogModel;
+
+		Cargo.View.Content.currentSet.el.setAttribute('data-container', 'set');
+		Cargo.View.Content.currentSet.el.setAttribute('data-id', blogModel.get('id'));
+
+		Cargo.View.Content.el.appendChild(Cargo.View.Content.currentSet.el);
+
+		Cargo.View.Content.currentSet.render();
+	},
+
+	forwardMobileLandingPages: function() {
+		if (
+			Cargo.Helper.isMobile() 
+			&& !Cargo.Helper.IsOnHomepage()
+			&& Cargo.View.Content.activeContentModel.get('project_url') !== 'Blog'
+			&& !Cargo.Homepage.Helpers.hasParentSetByName(Cargo.View.Content.activeContentModel,'Blog')
+			&& Cargo.View.Content.activeContentModel.get('id') !== 'Home'
+			&& Cargo.View.Content.activeContentModel.get('id') !== pid_list.students
+			&& Cargo.View.Content.activeContentModel.get('id') !== pid_list.nonprofits
+			&& Cargo.View.Content.activeContentModel.get('id') !== pid_list.jobs
+			// temporary: for showing useful music 35 — can be removed after Feb 2020
+			// && Cargo.View.Content.activeContentModel.get('id') !== 11522273
+		) {
+			Cargo.View.Content.RenderHomepage()
+		} else {
+			// console.log('do not render homepage')
+		}
+
+	}
+
+}
+
+Cargo.Homepage.LoginFrame = {
+
+	loginFrame: null,
+	forgotPasswordTimeout: undefined,
+
+	setup: function() {
+
+		var context = __cargo_context__ === 'staging' ? 'dev.' : '';
+		this.loginFrame = document.createElement('iframe');
+		this.loginFrame.src = 'https://'+context+'cargo.site/login?homepage=true';
+		this.loginFrame.id = 'login_frame';
+		this.loginFrame.className = 'preload';
+
+		document.body.appendChild(this.loginFrame);
+
+		// if (Cargo.Homepage.logged_in) {
+		//     $.get('/dispatch/auth/hasAuth', function(data) {
+		// 		if(data.jdata.has === true) {
+		// 			document.location.href="/admin";
+		// 		} else {
+		// 			Cargo.Homepage.LoginFrame.setup()
+		// 		}
+		//     }, "json");
+		// }
+
+		window.addEventListener("message", (event) => {
+
+			if(typeof event.data === 'string' && event.data.indexOf("login_success") >= 0) {
+				document.location.href = event.data.split("::")[1];
+			} else if (event.data.type === 'command') {
+				Cargo.Homepage.LoginFrame[event.data.message]();
+			}
+
+		}, false);
+	},
+
+	showLoginFrame: function() {
+		$(this.loginFrame).removeClass('preload')
+		$('body').addClass('loginframevisible')
+
+		this.loginFrame.contentWindow.focus();
+
+		setTimeout(_.bind(function(){
+
+			$('body').on('keydown.closeLogin', _.bind(function(e) {
+				if (e.keyCode === 27) {
+					e.preventDefault();
+					e.stopImmediatePropagation();
+					this.closeLoginFrame();
+				}
+			},this));
+
+			this.loginClickout = document.createElement('div')
+			this.loginClickout.id = 'login_clickout';
+			document.body.appendChild(this.loginClickout);
+			$(this.loginClickout).on('click.loginClickout', _.bind(function(e){
+				this.closeLoginFrame();
+			},this));
+			
+		},this), 50)
+		
+		
+	},
+
+	doLogin: function() {
+		if (Cargo.API.Config.has_auth) {
+			document.location.href="/admin";
+		} else {
+			this.showLoginFrame();
+		}
+	},
+
+	startHere: function() {
+		this.closeLoginFrame();
+		Cargo.Router.navigate('/Templates', {trigger: true});
+	},
+
+	forgotPassword: function() {
+		if (this.forgotPasswordTimeout === undefined) {
+
+			var context = __cargo_context__ === 'staging' ? 'dev.' : '';
+			window.open(
+			  'https://'+context+'cargo.site/login?forgot=true',
+			  '_blank'
+			);
+
+			this.forgotPasswordTimeout = setTimeout(_.bind(function(){
+				this.forgotPasswordTimeout = undefined;
+			},this), 500);
+		}
+		
+	},
+
+	closeLoginFrame: function(event) {
+		$(Cargo.Homepage.LoginFrame.loginFrame).addClass('preload')
+		$('body').off('keydown.closeLogin')
+		$('body').removeClass('loginframevisible')
+		this.loginClickout.remove();
+	}
+
+	
+}
+
+/***************************
+	PAGE OVERRIDES
+	Overrides default page behavior by wrapping existing functions or listening to events
+***************************/
+
+Cargo.o.view.Page.prototype.initialSetup = _.wrap(Cargo.o.view.Page.prototype.initialSetup, function(original) {
+
+	var args = Array.prototype.slice.call(arguments);
+	args.shift();
+
+	original.apply(this, args);
+
+	if(!document.body.contains(this.el)) {
+		return;
+	}
+
+	var _this = this,
+		id = this.model.get('id'),
+		set_id = this.model.get('set_id'),
+		is_pin = this.model.get('pin'),
+		content = this.model.get('content'),
+		title = this.model.get('title'),
+		purl = this.model.get('project_url'),
+		clean_purl = purl.toLowerCase().replace('-', ''),
+		// check to see if we have a parent model we want to use
+		parent_set_model = Cargo.Collection.Scaffolding.getContentOrPageModelByPid(this.model.get('set_id'));
+
+
+	// add a class to the page with it's title
+	this.$el.addClass(purl.toLowerCase());
+	if (typeof Cargo.Homepage[clean_purl] == 'object') {
+		Cargo.Homepage[clean_purl].setup(_this);
+	}
+
+	// SELECTION
+	if (Cargo.Homepage.Helpers.hasParentSetByName(parent_set_model,'Selections')) {
+		if (!is_pin) {
+			Cargo.Homepage.Selections.unBindSelections(this);
+			Cargo.Homepage.Selections.init(this);
+			Cargo.Homepage.Selections.setup(this);
+		}
+	// if we are in the blog
+	} else if (Cargo.Homepage.Helpers.hasParentSetByName(parent_set_model, 'Blog')) {
+		// only apply to blog entries after /077
+		// NOTE: it's important that ALL blog posts make it here since the blog is a stacked set
+		// if we allow previous posts to unbind, we will unbind our special formatting if an old post is loaded in the same pagination
+		if (parseInt(title) >= 077) {
+			Cargo.Homepage.Selections.initBlogGallery(this);
+		}
+	} else {
+		if (!is_pin) {
+			Cargo.Homepage.Selections.unBindSelections(this);
+		}
+	}
+
+	// BLOG
+	if (!is_pin && Cargo.Homepage.Helpers.hasParentSetByName(parent_set_model, 'Blog')) {
+		Cargo.Homepage.BlogPage.setup(this);
+	}
+
+	// add blog class for pages inside it
+	if (pid_list.blog == set_id) {
+		$('[data-id="'+pid_list.blog+'"]').addClass('blog');
+	}
+
+	// Templates page
+	if (id === pid_list.templates_page || id === pid_list.templates_new) {
+		Cargo.Homepage.templates.bindFilterLinks(this);
+		// Action.yepThisIsACargoSite()
+	}
+
+	// if (id === pid_list.templates_new) {
+	// 	Cargo.Homepage.templates.setup(this);
+	// 	this.$el.addClass('templates');
+	// 	Action.yepThisIsACargoSite()
+	// }
+
+	if (id === pid_list.students) {
+		if (!Cargo.Helper.IsAdminEdit() && Cargo.Helper.IsMobileWindowSize(window.innerWidth)) {
+		    $('.logos').insertBefore('.in-use-style');
+		}
+	}
+
+	// if the page rendered is In Use / but we're not on an In Use page — redirect
+	// this is when landing on an in-use page from google
+	if (Cargo.Homepage.Helpers.hasParentSetByName(parent_set_model, 'In Use')) {
+		if (!window.location.pathname.toLowerCase().match('in-use') && !Cargo.Homepage.Helpers.isAdminEdit()) {
+			window.location.href = '/In-Use'
+		}
+	}
+
+	// setup sites in use
+	if (id == pid_list.sites_in_use_page) {
+		Cargo.Homepage.SitesInUse.setup();
+	}
+
+	// DOMAIN SEARCH
+	if (pid_list.domain_search.indexOf(id) !== -1) {
+		if (!Cargo.Homepage.Helpers.isAdminEdit() && !Cargo.Homepage.Helpers.isMobileWidth()) {
+			Cargo.Homepage.Domains.setupSearch(this);
+		}
+	}
+
+	// FONTS PAGE
+	if (id === pid_list.fonts_page) {
+		Cargo.Homepage.FontPage.setup();
+	}
+
+	// items for sale page
+	if (id === pid_list.for_sale) {
+		Cargo.Homepage.ForSale.setup(this);
+	}
+
+
+	if (id == pid_list.blog_signup && !Cargo.Homepage.Helpers.isAdminEdit()) {
+
+		$('[data-submit]').on('click', function(e) {
+			handleNewsletterSignup(e)
+		});
+
+		$('form').on('submit', function(e) {
+			handleNewsletterSignup(e)
+			return false;
+		});
+
+		$('input#email').on('keydown', function(e) {
+			enterKey(e)
+		});
+
+		$('input#email').on('focusin focusout', function(e){
+			if (e.type == 'focusin') {
+				$('input#email').closest('#newsletter_signup').addClass('focus')
+			} else if (e.type == 'focusout' && $(this).val() == '') {
+				$('input#email').closest('#newsletter_signup').removeClass('focus')
+			}
+		})
+
+	}
+
+	if (!Cargo.Homepage.Helpers.isAdminEdit()) {
+		if (id == pid_list.useful_music || set_id == pid_list.mixes_set){
+			_.each($('a.image-link img'), function(img){
+				if ($(img, _this.el).closest($('.um-wrapper')).length == 0) {
+					$(img, _this.el).wrap('<div class="um-wrapper"></div>');
+				}
+			});
+		}
+
+		if (set_id == pid_list.useful_music_post){
+			var $image = $('a.image-link img').first();
+
+			if ($image.closest($('.um-wrapper')).length == 0) {
+				$image.wrap('<div class="um-wrapper"></div>');	
+			}
+		}
+	}
+
+	if (id === pid_list.global_header) {
+		Cargo.Homepage.Navigation.setup(this.model);
+	}
+
+	if (id === pid_list.home_page) {
+		Cargo.Homepage.HomeCustomizations.setup(this);
+	}
+
+	// Home in use page (rendered below the homepage)
+	 // || id === pid_list.sites_in_use_set
+	if (id === pid_list.home_in_use || id === pid_list.sites_in_use_page) {
+		Cargo.Homepage.SitesInUseNeue.setup(this);
+	} else {
+		Cargo.Homepage.SitesInUseNeue.unbind();
+	}
+
+});
+
+// Unbind customizations
+Cargo.o.view.Page.prototype.remove = _.wrap(Cargo.o.view.Page.prototype.remove, function(original) {
+
+	Cargo.Homepage.Selections.unBindImageScrollListeners(this);
+
+	if (Cargo.Homepage.HomeCustomizations.HomeInUsePageRendered === true) {
+		Cargo.Homepage.HomeCustomizations.unBindHomepageCustomizations(this);	
+	}
+	
+	// unbind the /templates page 'Preview' functionality
+	Cargo.Homepage.templates.unBindAndRemovePreview(this);
+
+	var args = Array.prototype.slice.call(arguments);
+	args.shift();
+
+	original.apply(this, args);
+
+
+});
+
+
+
+/***************************
+	SET OVERRIDES
+	Overrides default set behavior by wrapping existing functions or listening to events
+***************************/
+
+Cargo.o.view.Set.prototype.render = _.wrap(Cargo.o.view.Set.prototype.render, function(original) {
+
+	var args = Array.prototype.slice.call(arguments);
+	args.shift();
+
+	original.apply(this, args);
+
+	var _this = this,
+		id = this.model.get('id'),
+		purl = this.model.get('project_url');
+
+	if (id === 0 || purl == undefined) return;
+
+	var clean_purl = purl.toLowerCase().replace('-', '');
+	this.$el.addClass(purl.toLowerCase());
+
+	if (typeof Cargo.Homepage[clean_purl] == 'object') {
+		Cargo.Homepage[clean_purl].setup(_this);
+	}
+
+	if(purl == 'Home' && Cargo.Helper.isMobile()) {
+		Cargo.Homepage.Mobile.renderBlogOnMobile();
+	}
+
+	if (purl == 'Mixes') {
+		Cargo.Collection.Scaffolding.getModel({
+		    id: pid_list.mixes_set
+		}).paginate({
+		    pagination_count: 99
+		})	
+	}
+
+});
+
+Cargo.o.view.Set.prototype.remove = _.wrap(Cargo.o.view.Set.prototype.remove, function(original) {
+
+	Cargo.Homepage.templates.unBindAndRemovePreview(this);
+
+	Cargo.Homepage.Selections.unBindImageScrollListeners(this);
+
+	var args = Array.prototype.slice.call(arguments);
+	args.shift();
+
+	original.apply(this, args);
+
+	var _this = this,
+		id = this.model.get('id');
+
+});
+
+
+Cargo.o.view.Content.prototype.RenderPidOrPurl = _.wrap(Cargo.o.view.Content.prototype.RenderPidOrPurl, function(original) {
+
+	var args = Array.prototype.slice.call(arguments);
+
+	Cargo.Homepage.Selections.preventSelectionsFullRenderInAdmin(args);
+
+	args.shift();
+	original.apply(this, args);
+
+});
+
+
+/***************************
+	DOC READY / INIT
+***************************/
+
+var globalPreview = new Preview();
+globalPreview.clickEvents = function(){};
+
+$(function(){
+	
+	Cargo.Homepage.HomeCustomizations.setHomepageFitText();
+
+	// safari CSS class for fixing specific things
+	if (Cargo.Homepage.Helpers.isSafari()) {
+		$('body').addClass('safari');
+		if (Cargo.Homepage.Helpers.isIOS()) {
+			$('body').addClass('ios');
+		}
+	}
+
+	Cargo.Router.on('route', function(route, routeArgs){
+		if(routeArgs[0] === "In-Use" && routeArgs[1] !== undefined){
+			// check here to make `in-use` is rendered. If not, render it, then apply the filter
+			if(Cargo.View.Content.activeContentModel === null || Cargo.View.Content.activeContentModel.attributes.project_url !== "In-Use") {
+				Cargo.View.Content.RenderPidOrPurl('In-Use', false, {
+					complete: function(){
+						Cargo.Homepage.SitesInUseNeue.loadInUsePage(Cargo.Homepage.SitesInUseNeue.getMainTagURL());
+					}
+				})
+			} else {
+				Cargo.Homepage.SitesInUseNeue.loadInUsePage(Cargo.Homepage.SitesInUseNeue.getMainTagURL());
+			}
+		} else {
+			$('a[href="In-Use"]').off('click.reloadAll');
+		}
+	});
+
+	// sites in use if there is a tag in the URL
+	if (Cargo.Homepage.SitesInUseNeue.getMainTagURL() !== null) {
+		Cargo.View.Content.RenderPidOrPurl('In-Use', true);
+	}
+	// prevent normal thumbnails from fetching
+	Cargo.Collection.GlobalThumbnails.fetch = function(){}
+
+	// Setup default Cargo overrides
+	Cargo.Homepage.Overrides.setup()
+	// Preload the data for /Selections
+	Cargo.Homepage.Selections.preloadSelectionsData();
+	// Forward pages to the homepage on mobile devices
+	Cargo.Homepage.Mobile.forwardMobileLandingPages();
+
+	if (Cargo.API.Config.has_auth === false) {
+		Cargo.Homepage.LoginFrame.setup()
+	}
+	
+})
+
+function login() {
+    Cargo.Homepage.LoginFrame.doLogin();
+}
+
+
+// get the templates collection
+if (Cargo.Homepage.templateCollection == undefined) {
+	Cargo.Homepage.templateCollection = new Backbone.Collection($.parseJSON( $("script[data-set='home_templates']").html()));
+}
+
+// Load a file to generate the newsletter
+if (localStorage.getItem('newsletter_generator_simple') == 'true') { require(['https://s3.amazonaws.com/static.cargocollective.com/assets/testing/newsletter-generator-simple.js'], function(){});}
+// Baseunit Modification
+BaseUnit.prototype.setBaseUnit=function(){var i=0,t=this.data.mobile_padding,h=this.data.mobile_zoom-15,s=0,e=this.cache.window.h+300>this.cache.window.w;this.cache.window.h,this.cache.window.w;return this.cache.window.h>this.cache.window.w&&(i=this.cache.window.h/this.cache.window.w-1),this.cache.window.w<770?i/=.777777778:i/=60/77,i>1&&(i=1),t=Math.abs(t)/10,t=this.data.main_margin*t*i*-1,s=this.getBaseUnit({weight:9+h*i,min:20}),this.triggerEvent("set",{diff:i,offset:t,size:s}),e&&this.cache.window.w>770&&(s*=.84,i>.01&&(s*=.72)),this.cache.size===s?this:(this.$html.css("font-size",s+"%"),this.cache.size=s,this)};
+// fit text plugin
+!function(t){t.fn.fitText=function(n,i){var e=n||1,o=t.extend({minFontSize:Number.NEGATIVE_INFINITY,maxFontSize:Number.POSITIVE_INFINITY},i);return this.each(function(){var n=t(this),i=function(){n.css("font-size",Math.max(Math.min(n.width()/(10*e),parseFloat(o.maxFontSize)),parseFloat(o.minFontSize)))};i(),t(window).on("resize.fittext orientationchange.fittext",i)})}}(jQuery);

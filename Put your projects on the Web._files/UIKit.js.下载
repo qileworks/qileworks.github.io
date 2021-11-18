@@ -1,0 +1,795 @@
+define([], function() {
+
+	'use strict';
+
+	/**
+	 * Undo.js - A undo/redo framework for JavaScript. {@link https://github.com/jzaefferer/undo}
+	 *
+	 * Copyright (c) 2011 Jörn Zaefferer, MIT licensed.
+	 */
+	
+	var lastChangedInstance;
+
+	$(document).on('keydown.UIKit', function(e){
+
+		if(lastChangedInstance === undefined || ! lastChangedInstance.active || e.isDefaultPrevented()) {
+			return;
+		}
+
+		if( e.metaKey && e.shiftKey && e.which === 90 ) {
+			// cmd + shift + z
+			lastChangedInstance.redo();
+			e.preventDefault();
+		} else if( e.metaKey && e.which === 90 ) {
+			// cmd + z
+			lastChangedInstance.undo();
+			e.preventDefault();
+		}
+
+	});
+
+
+	return Backbone.View.extend({
+		
+		constructor: function(){
+
+			(function() {
+
+				// based on Backbone.js' inherits	      
+				var ctor = function() {};
+				var inherits = function(parent, protoProps) {
+					var child;
+
+					if (protoProps && protoProps.hasOwnProperty('constructor')) {
+						child = protoProps.constructor;
+					} else {
+						child = function() {
+							return parent.apply(this, arguments);
+						};
+					}
+
+					ctor.prototype = parent.prototype;
+					child.prototype = new ctor();
+
+					if (protoProps) extend(child.prototype, protoProps);
+
+					child.prototype.constructor = child;
+					child.__super__ = parent.prototype;
+					return child;
+				};
+
+				function extend(target, ref) {
+					var name, value;
+					for (name in ref) {
+						value = ref[name];
+						if (value !== undefined) {
+							target[name] = value;
+						}
+					}
+					return target;
+				};
+
+				var Undo;
+
+				Undo = this.Undo = {};
+
+				/**
+				 * A Stack is a list of commands. See {@link Undo.Command} for the documentation on these commands.
+				 */
+
+				Undo.Stack = function() {
+					this.commands = [];
+					this.stackPosition = -1;
+					this.savePosition = -1;
+					this.maxStackSize = 500;
+				};
+
+				function removeFromTo(arr, from, to) {
+					arr.splice(from,
+						!to ||
+						1 + to - from + (!(to < 0 ^ from >= 0) && (to < 0 || -1) * arr.length));
+					return arr.length;
+				};
+
+				extend(Undo.Stack.prototype, {
+					execute: function(command) {
+
+						this.commands.splice(this.stackPosition + 1, this.commands.length - this.stackPosition);
+
+						command.execute();
+
+						this.commands.push(command);
+
+						// if limit is set, remove items from the start
+						if (this.maxStackSize > 0 && this.commands.length > this.maxStackSize) {
+							removeFromTo(this.commands, 0, -(this.maxStackSize+1));
+						}
+
+						this.stackPosition = this.commands.length - 1;
+						this.changed();
+					},
+					undo: function() {
+						var command = this.commands[this.stackPosition];
+						if (!command) {
+							return false;
+						}
+						command.undo();
+
+						this.stackPosition--;
+						this.changed();
+
+						return true;
+					},
+					canUndo: function() {
+						return this.stackPosition !== -1;
+					},
+					redo: function() {
+						var command = this.commands[this.stackPosition + 1];
+						if (!command) {
+							return false;
+						}
+						command.redo();
+						this.stackPosition++;
+						this.changed();
+
+						return true;
+					},
+					canRedo: function() {
+						return this.stackPosition < (this.commands.length - 1);
+					},
+					save: function() {
+						this.savePosition = this.stackPosition;
+						this.changed();
+					},
+					dirty: function() {
+						return this.stackPosition != this.savePosition;
+					},
+					changed: function() {
+						// do nothing, override
+					},
+					clear: function() {
+						this.commands = [];
+						this.stackPosition = -1;
+						this.savePosition = -1;
+					},
+					getStackPosition: function() {
+						return this.stackPosition;
+					}
+				});
+
+				/**
+				 * Command is an abstract class that needs to be implemented. See {@link CargoEditor.EditorInstance.SnapShot} for our implementation
+				 */
+
+				Undo.Command = function(name) {
+					this.name = name;
+				}
+
+				var up = new Error("override me!");
+
+				extend(Undo.Command.prototype, {
+					execute: function() {
+						throw up;
+					},
+					undo: function() {
+						throw up;
+					},
+					redo: function() {
+						this.execute();
+					}
+				});
+
+				Undo.Command.extend = function(protoProps) {
+					var child = inherits(this, protoProps);
+					child.extend = Undo.Command.extend;
+					return child;
+				};
+
+			}).call(this);
+
+			var _this 			= this,
+				allInputs 		= {},
+				changedInputs 	= {};
+
+			this.historyWorking = false;
+
+			this.regularInputMutation = this.Undo.Command.extend({
+
+				/**
+				 * Sets all parameters for this snapshot.
+				 * @memberOf CargoEditor.EditorInstance.Snapshot
+				 */
+
+				constructor: function(input, oldValue, newValue) {
+
+					this.input = input;
+					this.oldValue = oldValue;
+					this.newValue = newValue;
+
+				},
+				
+				execute: function() {
+
+				},
+
+				undo: function() {
+					this.setInput(this.oldValue);
+				},
+
+				redo: function() {
+					this.setInput(this.newValue);
+				},
+
+				setInput: function(value){
+					_this.historyWorking = true;
+
+					if ($(this.input).attr('id') !== 'page_bgcolor') {
+					//console.log('setting', this.input, 'to', this.oldValue);
+						this.input._UIChangeSetter(value);
+					}
+
+					_this.historyWorking = false;
+				}
+
+			});
+
+			this.radioInputMutation = this.Undo.Command.extend({
+
+				/**
+				 * Sets all parameters for this snapshot.
+				 * @memberOf CargoEditor.EditorInstance.Snapshot
+				 */
+
+				constructor: function(oldRadio, newRadio) {
+
+					this.oldRadio = oldRadio;
+					this.newRadio = newRadio;
+
+				},
+				
+				execute: function() {
+
+				},
+
+				undo: function() {
+					_this.historyWorking = true;
+
+					this.oldRadio.checked = true;
+					$(this.oldRadio).change();
+
+					_this.historyWorking = false;
+				},
+
+				redo: function() {
+					_this.historyWorking = true;
+
+					this.newRadio.checked = true;
+					$(this.newRadio).change();
+
+					_this.historyWorking = false;
+				}
+
+			});
+
+			this.undoStack = new this.Undo.Stack();
+
+			// keep track of all inputs.
+			this.listenTo(this, 'UIAdded', function(name, value, element){
+
+				if(element.type !== 'radio' && allInputs.hasOwnProperty(name)){
+					// console.warn('Two or more inputs share the same name ("' + name + '"). This can cause unexpected problems.');
+				}
+
+				allInputs[name] = {
+					element: element,
+					value: value
+				}
+
+			});
+
+			this.listenTo(this, 'UIChange_before', function(name, value, element, event, silent){
+
+				//if(silent !== true) {
+					// store this input in the ChangedInputs map.
+					changedInputs[name] = {
+						value: value,
+						element: element
+					}
+				//}
+
+			});
+
+			this.listenTo(this, 'UIChange_after', function(name, value, element, event, silent){
+
+				// If an input has a model associated to it, save it.
+				if(element.dataset.model !== undefined){
+
+					var targetModel = Cargo.Model[element.dataset.model];
+
+					if(targetModel !== undefined){
+
+						if(targetModel.has(name) === false) {
+							console.warn('Cargo.Model.' + element.dataset.model + ' does not contain the "' + name + '" attribute. Adding it.');
+						}
+
+						targetModel.set(name, value, {silent: true});
+					
+					}
+
+				}
+
+			});
+
+			// Hijack the render method so we can call initUIKit after render gets called
+			// on the parent view.
+			_.bindAll(this, 'render'); 
+
+			this.render = _.wrap(this.render, function(render) { 
+
+				_this.active = true;
+
+				// forward arguments, except the first (the render function)
+				var args = Array.prototype.slice.call(arguments);
+				args.shift();
+
+				render.apply(this, args); 
+
+				_this.initUIKit.call(this);
+
+				_this.addSliderUI();
+				_this.handleSelectCoverUI();
+				_this.focusInputOnLabelClick();
+
+				this.trigger('UIKit_init_complete');
+
+				return _this;
+
+			});
+
+			this.remove = _.wrap(this.remove, function(remove) { 
+				
+				_this.active = false;
+
+				remove.call(this);
+
+				return _this;
+
+			});
+
+			// allow for manual setting and getting of UI elements
+			this.setUIValue = function(name, value){
+
+				if(allInputs.hasOwnProperty(name)){
+					allInputs[name].element._UIChangeSetter(value);
+				}
+
+			};
+
+			this.addSliderUI = function(){
+
+				this.$el.find('[data-slider-value]').each(function(){
+
+					// append progress div
+					if ($(this).siblings('.range-progress').length == 0) {
+						$(this).parent('.col.range:not(.template-picker-range)').append('<div class="range-progress" \>');
+					}
+
+					var rangeSlider = $(this).prevAll('input[type="range"]:first'),
+						sliderValueEl = this;
+
+					if(rangeSlider.length > 0){
+
+						var el = rangeSlider[0];
+
+						el._setSliderProgress();
+
+						rangeSlider.off('input.slider-value');
+
+						rangeSlider.on('input.slider-value', function(){
+							el._onInputEvent.call(this);
+						});
+
+						el._onInputEvent = function(){
+							sliderValueEl.textContent = this.value;
+							el._setSliderProgress();
+						}
+
+						sliderValueEl.textContent = el.value;
+					}
+
+				});
+
+			};
+
+			this.handleSelectCoverUI = function(){
+				// Getting all the select covers
+				this.$el.find('[data-select-cover]').each(function(){
+					var cover_el = this.querySelector('.cover_label'),
+						select_el = this.nextElementSibling;
+
+					if(cover_el === null || select_el === null || select_el.nodeName !== "SELECT") {
+						return;
+					}
+
+					// Handle manually on view...
+					if( cover_el.getAttribute('set-on-view') == 'true' ){
+						return
+					}
+
+					// listen to changes and update the cover text
+					select_el.addEventListener('change', function(e){
+						cover_el.textContent = select_el.options[select_el.selectedIndex].textContent
+					})
+
+					// if we don't have an index for initial cover text, stop now.
+					if(select_el.selectedIndex === -1) {
+						return 
+					}
+					// set initial cover text
+					cover_el.textContent = select_el.options[select_el.selectedIndex].textContent
+
+				})
+
+			};
+
+			this.focusInputOnLabelClick = function(){
+				// For each input label
+				this.$el.find('[data-input-parent]').each(function(count, elem){
+					// find the text input
+					var input =  this.querySelector('input[type="text"]');
+					if(!input) return;
+					var inputType = input.getAttribute('type');
+					// Make sure it's text
+					if( inputType == 'text' ){
+						// Add click listener
+						var label = elem.firstElementChild;
+						if( label.hasAttribute('data-label') ){
+							label.addEventListener('click', function(e){
+								// focus beginning
+								input.focus();  
+								// get length of whatever is inside
+								var length = input.value.length;  
+								// select at end of that range length
+								input.setSelectionRange(length, length); 
+							})
+						}
+					}
+				})
+			};
+
+			this.getChanges = function(reset){
+
+				if(reset === true){
+					
+					var cachedChanges = changedInputs;
+					changedInputs = {};
+					return cachedChanges;
+
+				}
+
+				return changedInputs;
+
+			};
+
+			this.getCurrentValues = function() {
+				var defaults = allInputs,
+					change_values = changedInputs;
+
+				// Merge the changed values with the defaults
+				_.defaults(change_values, defaults);
+
+				return change_values;
+
+			}
+
+			this.resetUIKit = function(){
+
+				_.each(allInputs, function(inputObj){
+
+					$(inputObj).off(inputObj._changeEvent);
+					$(inputObj).off('keyup.UIKit');
+
+					delete inputObj._UIChangeListener;
+					delete inputObj._changeEvent;
+
+				});
+
+				allInputs = {};
+				changedInputs = {};
+				
+			}
+
+			this.revertUIKit = function(){
+
+				_.each(allInputs, function(inputObj){
+					inputObj.element.value = inputObj.value;
+
+					if(inputObj.element.type == "radio") {
+						$(inputObj.element).prop('checked', true);
+					
+					} else if(inputObj.element.type == "checkbox") {
+						$(inputObj.element).prop('checked', inputObj.value);
+					}
+
+					_this.trigger('UIChange_before', inputObj.element.name, inputObj.value, inputObj.element, {}, false);
+					_this.trigger('UIChange', inputObj.element.name, inputObj.value, inputObj.element, {}, false);
+				});
+
+				this.$el.find('input.colorpicker').trigger('colorpicker-update-preview');
+
+				// Re-adding the sliders will reset with the new value
+				this.addSliderUI();
+				this.handleSelectCoverUI();
+			}
+
+			this.key_is_valid = function(keycode) {
+				var valid =  
+			        (keycode > 7 && keycode < 14)   || // backspace tab enter
+			        (keycode > 45 && keycode < 58)   || // number keys
+			        keycode == 32                    || // spacebar
+			        (keycode > 64 && keycode < 91)   || // letter keys
+			        (keycode > 95 && keycode < 112)  || // numpad keys
+			        (keycode > 185 && keycode < 193) || // ;=,-./` (in order)
+			        (keycode > 218 && keycode < 223);   // [\]' (in order)
+
+			    return valid;
+			}
+			
+			// call super constructor
+			Backbone.View.prototype.constructor.apply( this, arguments );
+
+		},
+
+		active: false,
+
+		undo: function() {
+			this.undoStack.undo();
+		}, 
+
+		redo: function(){
+			this.undoStack.redo();
+		},
+
+		initUIKit: function(){
+
+			var _this = this;
+
+			[].forEach.call(this.el.querySelectorAll('input, select, textarea'), function(input){
+
+				var valueField,
+					changeEvent;
+
+				if(input.name === undefined || input.name === "") {
+					return;
+				}
+
+				if(input.type === "number") {
+
+					valueField = "valueAsNumber";
+					changeEvent = ['input'];
+
+				} else if(input.type === "text" || input.type === "hidden" || input.type === "textarea" || input.type === "password"){
+
+					valueField = "value";
+					changeEvent = ['input'];
+
+				} else if(input.type === "range" || input.nodeName === "SELECT"){
+
+					valueField = "value";
+					changeEvent = ['input'];
+
+				} else if(input.type === "checkbox"){
+
+					valueField = "checked";
+					changeEvent = ['change'];
+					
+				} else if(input.type === "radio") {
+
+					valueField = "value";
+					changeEvent = ['change'];
+
+				} else if(input.type === "button") {
+
+					valueField = "value";
+					changeEvent = ['click'];
+
+				}
+
+				if(valueField !== undefined && input._UIChangeListener === undefined){
+
+					var parent = input.parentNode,
+						output = null,
+						suffix;
+
+					if(input.type === "range"){
+
+						if(parent !== null /*&& parent.nodeName === "LABEL"*/){
+							output = parent.querySelector('.value');
+						}
+
+						if(output !== null){
+							suffix = output.dataset.suffix;
+
+							// make sure suffix is always a string
+							suffix = (suffix === undefined ? '' : suffix);
+						}
+
+						if(output !== null){
+							output.textContent = input.value + suffix;
+						}
+
+					}
+
+					input.__lastValue = input[valueField];
+
+					// store reference to listener so we can manually call it
+					input._UIChangeListener = function(event, silent){
+
+						// Don't trigger a change for certain key codes
+						if(event && event.keyCode && !_this.key_is_valid(event.keyCode)){
+							return;
+						}
+
+						if(silent !== true) {
+							silent = false;
+						}
+
+						var value = this[valueField],
+							isModelPath = this.name.indexOf(':') !== -1;
+
+						if(isModelPath){
+
+							var splitName = this.name.split(':'),
+								pathParts = splitName[1].split('.');
+
+							var options = {
+								model: splitName[0],
+								path: splitName[1],
+								value: value,
+								el: this,
+								defaultPrevented: false,
+								preventDefault: function(){
+									this.defaultPrevented = true;
+								}
+							}
+
+							// set the right this value for preventDefault
+							options.preventDefault.bind(options);
+
+							_this.trigger('UIModelChange', options);
+
+							// if there is a model to save this to, set the value
+							if(options.defaultPrevented !== true) {
+								if(options.model && _this[options.model] && typeof _this[options.model].set === "function") {
+									if(pathParts.length > 1 && _this[options.model].isNestedModel !== true) {
+										console.warn('Unable to set "%s" on non-nested model. Convert "%s" to Backbone.NestedModel.', options.path, options.model);
+									} else {
+										_this[options.model].set(options.path, options.value);
+									}
+								} else {
+									console.warn('Unable to locate the model "%s" on this view', options.model);
+								}
+							}
+
+						} else {
+							
+							_this.trigger('UIChange_before', this.name, value, this, event, silent);
+							_this.trigger('UIChange', this.name, value, this, event, silent);
+
+						}
+
+						if(_this.historyWorking === false && silent !== true) {
+
+							if(this.type === "radio") {
+								_this.undoStack.execute(
+									new _this.radioInputMutation(_this.getCurrentValues()[this.name].element, this)
+								);
+							} else {
+								_this.undoStack.execute(
+									new _this.regularInputMutation(this, this.__lastValue, value)
+								);
+							}
+
+						}
+
+						if(output !== null){
+							output.textContent = this.value + suffix;
+						}
+
+						// This event is for internal use. It fires after all UIChange listeners have been handled
+						// so we know for sure that any modifications happened in these listeners are complete and we
+						// work with the final input value.
+						_this.trigger('UIChange_after', this.name, value, this, event, silent);
+
+						if(silent !== true) {
+							this.__lastValue = value;
+
+							lastChangedInstance = _this;
+						}
+
+						this._toggleGroup();
+
+					}
+
+					// Add all the event listeners
+					for(var i=0;i<changeEvent.length;i++) {
+						$(input).on(changeEvent[i] + '.UIKit', input._UIChangeListener);
+					}
+
+					// console.trace('bind ui kit stuff')
+
+					input._changeEvent = changeEvent[0] + '.UIKit';
+
+					$(input).on('keyup.UIKit', function(e){
+						if(e.keyCode === 13){
+							_this.trigger('UIEnter', input.name, input[valueField], input);
+						}
+					});
+
+					// Should we add or not? Be optimistic
+					var trigger_add = true;
+
+					// Don't add radios that are not checked
+					if(input.type === "radio" && !input.checked) {
+						trigger_add = false;
+					}
+
+					if(trigger_add) {
+						// let listeners know this has been added
+						_this.trigger('UIAdded', input.name, input[valueField], input);
+					}
+
+					input._toggleGroup = function() {
+						if($(this).closest('[data-group-toggle-trigger]').length > 0) {
+
+							var group = $(this).closest('[data-group-toggle]');
+							var siblings = $(group).children().not('[data-group-toggle-trigger]');
+						
+							if ($(this).is(':checked')) {
+								$(siblings).removeClass('hidden');
+							} else {
+								$(siblings).addClass('hidden');
+							}
+						}
+					}
+
+					input._UIChangeSetter = function(newValue){
+
+						input[valueField] = newValue;
+						//this._UIChangeListener();
+						for(var i=0;i<changeEvent.length;i++) {
+							$(this).trigger(changeEvent[i]);
+						}
+						
+
+					}
+
+					input._setSliderProgress = function(){
+
+						var self 	= $(this),
+							input_w = Math.max(self.width(), 340),
+							val 	= parseFloat(self.val()),
+							step 	= parseFloat(self.attr('step') ),
+							step 	= (isNaN(step)) ? 1 : step,
+							max 	= parseFloat(self.attr('max')),
+							min 	= parseFloat(self.attr('min')),
+							right 	= (1 - (val - min)/(max-min))*100,
+
+
+							// snap right to 100% if the border would get cropped out
+							right   = ((right*.01) * input_w) +2 > input_w ? 100 : right,
+
+							// snap right to 0% if we're at the last step
+							right	= (!right) || (val+step > max && min < max) ? '0%' : right + '%',
+							right 	= (right == '100%') ? 'calc(100% - 2px)' : right;
+
+					    self.parent('.col.range').find('.range-progress').css('right', right);
+					};
+				}
+				
+			});
+	
+		}
+
+	});
+});

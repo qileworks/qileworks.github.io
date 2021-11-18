@@ -1,0 +1,391 @@
+/**
+ *	
+ */
+define([
+	"text!_templates/login.html",
+	'_views/reset'
+],
+function(
+	template,
+	PwResetview
+) {
+	
+	return Backbone.View.extend({
+
+		id : 'login',
+
+		template : _.template(template),
+
+		events : {
+			'submit form' 					: 'handleSubmit',
+			'click [data-submit]'			: 'handleSubmit',
+			'click #reset_link'				: 'passwordReset',
+			'click .close'					: 'close',
+			'keypress input[type="password"]': 'enterKey',
+			'click .start-here'				: 'startHere'
+		},
+
+		in_admin : false,
+		auth_site : '',
+		redirect : false,
+		app_open : false,
+		isHomepageLogin: false,
+
+		initialize: function() {
+			this.in_admin = (typeof Cargo == "object");
+
+			if(this.in_admin) {
+				Cargo.Event.on("login_success", this.loginSuccess, this);
+			} else {
+				// Error states
+				$.fn.toggleInputError = function(erred) {
+					this.parent().toggleClass('error', erred);
+					this.parent('[data-input-parent]').toggleClass('error-state', erred);
+					return this;
+				};
+			}
+
+			this.redirect = decodeURIComponent(window.location.search.replace('?rd=',''));
+			
+			this.checkAuthOrRender();
+
+			this.disableEditor();
+
+			if (document.location.search && document.location.search === '?homepage=true') {
+				$('body').addClass('homepage-login')
+				this.isHomepageLogin = true;
+
+				// make sure this doesn't get passed to the redirect
+				this.redirect = this.redirect.replace('?homepage=true', '')
+
+				setTimeout(function(){
+					$('[name="username"]').focus();
+				}, 100)
+
+				$(window).on('keydown.closeLogin', function(e) {
+					if (e.keyCode === 27) {
+						e.preventDefault();
+						e.stopImmediatePropagation();
+						parent.postMessage({
+							type: 'command', 
+							message: 'closeLoginFrame'
+						}, '*');
+					}
+				});
+			}
+			
+		},
+
+		startHere: function(e) {
+			if (this.isHomepageLogin) {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+
+				parent.postMessage({
+					type: 'command', 
+					message: 'startHere'
+				}, '*');
+			}
+		},
+
+		/**
+		 * Check to see if we are authenticated or not
+		 * If so, we will redirect. If not, we will show login
+		 * 
+		 */
+		checkAuthOrRender: function() {
+			if(typeof Cargo != "object") {
+				return;
+			}
+
+			var _this = this;
+
+			$.getJSON(
+				Cargo.Helper.GetAuthDomain() + '/dispatch/admin/checkAuth?callback=?', 
+				{ site_url : Cargo.Model.Site.get('site_url') }, 
+				function(dataObj) { 
+					if(dataObj.jdata == 403) {
+						_this.render();
+					} else {
+						_this.auth_site = dataObj;
+						_this.loginSuccess();
+					}
+				}
+			);
+		},
+
+		render: function() {
+
+			if(this.in_admin) {
+				var markup = this.template({
+					site : Cargo.Model.Site.toJSON(),
+					site_url : Cargo.Helper.GetUrl(),
+					is_admin: true,
+					rd: this.redirect
+				});
+			} else {
+				// See if we can pull some defaults
+				var defaults = ($("script[data-set='defaults']").length > 0) ? $.parseJSON( $("script[data-set='defaults']").html() ) : {};
+				
+				var markup = this.template({
+					site: '', 
+					site_url: defaults.cargo_url,
+					is_admin: false,
+					rd: this.redirect
+				});
+			}
+
+			this.$el.html( markup );
+
+			if (document.location.search && document.location.search === '?forgot=true') {
+				this.passwordReset();
+			}
+
+			if($("body").hasClass('reset')) {
+				this.passwordReset();
+
+			} else if($("body").hasClass('do_reset')) {
+				window.Login_View.ShowResetForm();
+				
+			} else {
+				if (!isMobile()) {
+					setTimeout((function(){
+						$('[name="username"]').focus();
+					}).bind(this), 200);
+				}
+			}
+
+			if (isMobile()) {
+				this.$el.addClass('is_mobile');
+			}
+
+
+			return this;
+		},
+
+		handleSubmit: function() {
+			// return if already processing
+			if (this.processing) {return false;}
+			
+			if(!this.validateForm()) {return false;}
+
+			// show processing
+			$('.processing').removeClass('hidden');
+			this.processing = true;
+
+			var _this = this;
+
+			$.post(
+				'/dispatch/admin/login', 
+				$('form', this.el).serialize(),
+				function(data) {
+					
+					// send the c3 data to the parent
+					if(data.jdata.c3_data && parent) {
+						parent.postMessage(data.jdata.c3_data, '*');
+					}
+					
+					if(data.error) {
+						_this.displayErrorMessage(data.error, 'input');
+						$('.processing').addClass('hidden');
+						_this.processing = false;
+
+					// If there is a redirect (probably going to c1)
+					} else if(data.jdata.redirect_url) {
+						
+						parent.postMessage('login_success::'+data.jdata.redirect_url, '*');
+						document.location.href = data.jdata.redirect_url;
+
+					// If there is a cv_1 token, we need to auth it
+					} else if(data.jdata.c1_muid) {
+						_this.handleRootCargoValidation(data);
+
+					// Otherwise, just login locally
+					} else {
+						_this.confirmLogin(data);
+					}
+					
+				}, 'json'
+			);
+
+			return false;
+
+		},
+
+		/**
+		 * Confirm all the local frames
+		 * @param  {Object} data Return value from login
+		 */
+		confirmLogin: function(data) {
+			$('#loginframe_local', this.el).attr('src', data.jdata.confirmlogin_local);
+						
+			if(data.jdata.confirmlogin_remote) {
+				$('#loginframe_remote', this.el).attr('src', data.jdata.confirmlogin_remote);
+			}
+
+			this.auth_site = data.jdata.auth_site;
+			this.folders_callback = (data.jdata.folders_callback) ? data.jdata.folders_callback : null;
+		},
+
+		/*
+		 *	Validate the authentication with a custom domain
+		 */
+		handleRootCargoValidation : function(data) {
+			var _this = this;
+			var send_data = {
+				muid : data.jdata.c1_muid,
+				logintoken : data.jdata.logintoken,
+				authtoken : data.jdata.authtoken
+			}
+			$.ajax({
+				url : "https://cargocollective.com/dispatch/auth/handleDomainValidation/?callback=?", 
+				dataType : "jsonp",
+				data : send_data, 
+				timeout: 2500,
+				success : function() { 
+					_this.confirmLogin(data);
+				},
+				error : function() {
+				    _this.confirmLogin(data);
+				}
+			});
+		},
+		
+		enterKey: function(e) {
+			if (e.which == 13) {
+				this.handleSubmit();
+			}
+		},
+
+		validateForm: function() {
+			
+			$('[data-error-message]').closest('[data-message]').addClass('hidden');
+			$('.error').removeClass('error');
+			$('.error-state').removeClass('error-state');
+			
+			$('input', this.el).each(function() {
+				if($(this).attr('type') != "hidden") {
+					$(this).toggleInputError( $(this).val() == '' );
+				}
+			});
+			
+			// display name is not blank	
+			if($("[name='username']", this.el).val() == "") {
+				if (!isMobile()) {
+					$("[name='website_title']", this.el).val('').focus();
+				}
+				this.displayErrorMessage('Email or Username cannot be empty', "[name='username']");
+			}
+			
+			if($("[name='password']", this.el).val() == "") {
+				if (!isMobile()) {
+					$("[name='password']", this.el).val('').focus();
+				}
+				this.displayErrorMessage('Password is incorrect.', "[name='password']");
+			}
+			
+			return ($(".error", this.el).length == 0);
+		},
+		
+		displayErrorMessage: function(message, elem) {
+			$(elem, this.el).closest('[data-input-parent]').find('.text').addClass('error');
+			$(elem, this.el).closest('[data-input-parent]').addClass('error-state');
+			var parent = $('[data-error-message]', this.el).closest('[data-message]');
+			$(parent).removeClass('hidden');
+			$('[data-error-message]').text(message);
+			this.processing = false;
+		},
+
+		loginSuccess: function() {
+			if(typeof Cargo == "object") {
+				this.enableEditor();
+				Cargo.Model.Site.set('is_editor', true);
+
+				document.location.href = '/admin';
+
+			} else {
+				if(this.redirect == "following") {
+					parent.Cargo.View.Following.el.contentWindow.Following.Events.trigger('login:success');
+
+				} else if(this.folders_callback && this.folders_callback.indexOf("cargofolders") >= 0) {
+					// First time we get here, open the app
+					// second time, redirect to the admin
+					if(this.app_open === true) {
+						document.location.href = this.auth_site;
+						return;
+					}
+
+					document.location.href = this.folders_callback;
+					this.app_open = true;
+
+				} else if(this.redirect && this.redirect != document.location.href) {
+					document.location.href = document.location.pathname;
+
+				} else if(this.redirect) {
+					document.location.href = this.redirect;
+
+				} else if(this.auth_site && this.auth_site != document.location.href) {
+					document.location.href = document.location.pathname;
+				
+				} else if(this.auth_site) {
+					document.location.href = this.auth_site;
+				}
+			}
+		},
+
+		passwordReset: function(e) {
+			if(e) {
+				e.preventDefault();
+			}
+
+			if (this.isHomepageLogin) {
+				parent.postMessage({
+					type: 'command', 
+					message: 'forgotPassword'
+				}, '*');
+				return;
+			}
+
+			if(this.in_admin) {
+				Cargo.Editor.Main.ShowReset();
+			} else {
+				window.Login_View.ShowReset();
+			}
+			return false;
+		},
+		
+		close: function() {
+			if(this.in_admin) {
+				document.location.href = Cargo.Model.Site.get('direct_link');
+			}
+		},
+
+		/**
+		 * Disable the editor in the content frame (if we are in the admin)
+		 */
+		disableEditor: function() {
+			if(!this.in_admin) {
+				return;
+			}
+
+			$('[data-ce-host]', Cargo.contentWindow.document.body).attr('data-ce-host', 'false');
+
+		},
+
+		/**
+		 * Enable the editor again upon login
+		 */
+		enableEditor: function() {
+			if(!this.in_admin) {
+				return;
+			}
+
+			$('[data-ce-host]', Cargo.contentWindow.document.body).attr('data-ce-host', 'true');
+
+		}
+		
+		
+		
+	});
+
+});

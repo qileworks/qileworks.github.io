@@ -1,0 +1,73 @@
+if(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) {
+
+	$(`<div id="master_wrapper" data-admin-resize="">
+		<div class="row col multi-line position-absolute pad-medium" style="display: block; font-size: 24px;">
+			Editing your Cargo site is not yet supported for this device; please use a desktop version of Chrome or Safari.
+		</div>
+	</div>`).appendTo(document.body);
+
+} else {
+
+	requirejs.config({
+		baseUrl: '/_jsapps/admin',
+		
+		paths: {
+			text 	: "//static.cargo.site/libs/require/text.2.0.16.min",
+			css 	: "//static.cargo.site/libs/require/css.min"
+		}
+	});
+
+	/**
+	 *	
+	 */
+	define([
+		'_views/login',
+		'_views/reset',
+		'_views/resetform'
+	],
+	function(
+		Loginview,
+		PwResetview,
+		PwResetFormview
+	) {
+		window.Login_View = {
+			attach_element : ($('#editor_masterview').length > 0) ? '#editor_masterview' : 'body',
+
+			loginSuccess : function() {
+				this.Login.loginSuccess();
+			},
+			
+			ShowLogin : function() {
+				if(this.PwReset) {
+					this.PwReset.$el.remove();
+				}
+
+				if(this.Login) {
+					this.Login.$el.show();
+				} else {
+					this.Login = new Loginview();
+					$(this.attach_element).append( this.Login.render().$el );
+				}
+			}, 
+			
+			ShowReset: function() {
+				this.Login.$el.hide();
+
+				this.PwReset = new PwResetview();
+				$(this.attach_element).append( this.PwReset.render().$el );
+			},
+
+			ShowResetForm: function(reset_email) {
+				this.Login.$el.hide();
+				this.PwReset.$el.remove();
+
+				this.PwResetForm = new PwResetFormview({ 'reset_email' : reset_email });
+				$(this.attach_element).append( this.PwResetForm.render().$el );
+			},
+		}
+		
+		Login_View.ShowLogin();
+		
+	});
+
+}

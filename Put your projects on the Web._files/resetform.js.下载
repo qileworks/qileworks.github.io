@@ -1,0 +1,163 @@
+/**
+ *	
+ */
+define([
+	"_views/UIKit",
+	"text!_templates/resetform.html",
+],
+function(
+	UIKit,
+	template
+) {
+	
+	return UIKit.extend({
+
+		id : 'password_reset',
+
+		template : _.template(template),
+
+		events : {
+			'click [data-submit]'		: 'HandleSubmit'
+		},
+
+		initialize: function(options) {
+			this.reset_email = (options && options.reset_email) ? options.reset_email : reset_email;
+			this.listenTo(this, "UIEnter", this.HandleSubmit);
+		},
+
+		render: function() {
+			var markup = this.template({
+				email: this.reset_email
+			});
+
+			this.$el.html( markup );
+			
+			setTimeout((function(){
+				this.$el.find('input[name="email"]').focus();
+			}).bind(this), 150);
+
+			if (isMobile()) {
+				this.$el.addClass('is_mobile');
+			}
+
+			return this;
+		},
+
+		/*
+		 *	Submits the form
+		 */
+		HandleSubmit : function(e) {
+
+			if (this.processing) {
+				return false;
+			}
+			
+			if( !this.ValidateForm() ) {
+				return;
+			} else {
+				$('.processing').removeClass('hidden');
+				this.processing = true;
+			}
+
+			var password = $.trim($('[name="password_reset"]').val());
+			var _this = this;
+			
+			
+			$.post( 
+				"dispatch/auth/handleResetFormPost", 
+				{ 
+					password : password,
+					email : $('[name="email"]').val(),
+					pwreset : $('[name="pwreset"]').val()
+				}, 
+				function(dataObj) {
+					_this.HandleFormReturn(dataObj);
+				},
+				"json"
+			);
+
+			return false;
+		},
+
+		
+		/*
+		 * Handle the return value from the form
+		 */
+		HandleFormReturn : function(dataObj) {
+			$('.processing').addClass('hidden');
+			this.processing = false;
+
+
+			// Handle an error
+			if(dataObj.error.length > 0) {
+				this.ShowError(dataObj.error.join('<br>'));
+				return false;
+			}
+
+			// If we passed, then do the login
+			if(dataObj.jdata.success === true) {
+				var login_view = (window.Login_View) ? window.Login_View.Login : window.NewSiteLogin;
+
+				// If there is a login view
+				if(login_view) {				
+					// Set the login view's input
+					$('[name=username]', login_view.$el).val( dataObj.jdata.username );
+					$('[name=password]', login_view.$el).val( $.trim($('[name="password_reset"]').val()) );
+
+					// New site signup
+					if(window.NewSiteLogin) {
+						window.NewSiteLogin.handleLoginSubmit();
+
+					// Redirect for Cargo 1
+					} else if(dataObj.jdata.redirect_url) {
+						document.location.href = dataObj.jdata.redirect_url;
+
+					// Submit the form for Cargo 2
+					} else if(window.Login_View) {
+						window.Login_View.Login.handleSubmit();
+						
+					}
+				}
+
+			// Catch all redirect
+			} else if(dataObj.jdata.redirect_url) {
+				document.location.href = dataObj.jdata.redirect_url;
+			}
+		
+		},
+
+		/*
+		 *	Validate the form before submitting
+		 */
+		ValidateForm : function() {
+			var password = $.trim($('[name="password_reset"]').val());
+			var password_confirm = $.trim($('[name="password_reset_confirm"]').val());
+
+			if (password == "" || password_confirm == "") {
+				this.ShowError("Password cannot be empty");
+				return false;
+			}
+
+			if(password != password_confirm) {
+				this.ShowError("Passwords do not match");
+				return false;
+			}
+			
+			return true;
+
+		},
+
+		/*
+		 *	Display an error
+		 */
+		ShowError : function(message) {
+			$("[data-error-message]").html(message);
+			$('.text', this.el).addClass('error');
+			$("[data-message]").removeClass('hidden');
+			$('.processing').addClass('hidden');
+		}
+
+
+	});
+
+});

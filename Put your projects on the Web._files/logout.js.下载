@@ -1,0 +1,106 @@
+var Auth = window.Auth || {};
+
+Auth.Logout = {
+	/*
+	 *	A comma separated list of domains to logout
+	 */
+	'domain_chain' 	: "",
+	'custom_domains': [],
+	'domain_count'	: 0,
+	'do_redirect'	: false,
+	'do_postmessage': false,
+	'dispatch'		: '/dispatch/auth/logoutDomain?callback=?',
+	'cargo_1_logout': 'https://cargocollective.com/logoutc1',
+	'home_url'		: (/cargo.site/.test(document.location.host)) ? document.location.host.replace('auth.','') :  'cargo.site',
+	'auth_url'		: (/cargo.site/.test(document.location.host)) ? document.location.host :  'cargo.site',
+
+
+	/*
+	 *	Logout ajax call to domains
+	 */
+	DoLogout : function() {
+		// Assume the domains are on the page
+		var domain_list = this.domain_chain.split(",");
+		var has_qs = false;
+		var _this = this;
+
+		// If there are domains in the query string
+		if(location.search && (getQueryStringParam('domains') || getQueryStringParam('rd'))) {
+		// if(/domains=/.test(document.location.search.substring(1))) {
+			if(getQueryStringParam('domains')) {
+				domain_list.push( getQueryStringParam('domains').split(",") );
+			}
+			
+			if(getQueryStringParam('rd')) {
+				domain_list.push( getQueryStringParam('rd').match(/http(s)?:\/\/(www\.)?[a-z0-9][a-z0-9\-]{1,63}\.[a-z\.]{2,8}/)[0] );
+			}
+
+			domain_list = _.flatten(domain_list);
+			has_qs = true;
+
+		}
+
+		// Loop through each domain and 
+		$.each(domain_list, function(i, domain) {
+			if (! domain) {
+				return;
+			}
+
+			// Get the proper protocol
+			if(has_qs || (!has_qs && /\.cargo\.site/.test(domain)) ) {
+
+				var send_protocol = (/http/.test(domain) === false) ? '//' : '';
+
+				$.getJSON(
+					send_protocol + domain + Auth.Logout.dispatch, 
+					null, 
+					Auth.Logout.HandleReturn
+				);
+
+			// Ensure we have a "." in the domain path
+			} else if(/\./.test()) {
+				_this.custom_domains.push(domain);
+			
+			// Cargo domains and non-subdomains are added to the chain
+			// so let it slide
+			} else {
+				Auth.Logout.domain_count++;
+			}
+		});
+
+	},
+
+	/**
+	 *	Make sure we have a return from everyone,
+	 *	then redirect to the homepage
+	 */
+	HandleReturn : function(dataObj) {
+		Auth.Logout.domain_count++;
+		
+		if(Auth.Logout.domain_count + Auth.Logout.custom_domains.length == Auth.Logout.domain_chain.split(",").length) {
+			if(Auth.Logout.do_postmessage) {
+				top.postMessage('logout_success', '*');
+			} else if(Auth.Logout.do_redirect) {
+				if(Auth.Logout.custom_domains.length > 0) {
+					Auth.Logout.GoCustomDomainLogout(Auth.Logout.custom_domains.join(','));
+
+				} else if(Auth.Logout.do_redirect != "true" && Auth.Logout.do_redirect !== true) {
+					top.document.location.href = Auth.Logout.cargo_1_logout + "?rd=" + Auth.Logout.do_redirect;
+				} else {
+					Auth.Logout.GoHome();
+				}
+			}
+		}
+	},
+
+	GoCustomDomainLogout: function(domains) {
+		top.document.location.href = "https://" + Auth.Logout.auth_url + "/logout?domains="+domains;
+	},
+
+	/*
+	 *	Go home
+	 */
+	GoHome : function() {
+		top.document.location.href = Auth.Logout.cargo_1_logout + "?rd=" + "https://" + Auth.Logout.home_url;
+	}
+}
