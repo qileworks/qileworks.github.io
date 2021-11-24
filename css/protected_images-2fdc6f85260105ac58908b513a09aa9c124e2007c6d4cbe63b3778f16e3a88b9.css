@@ -1,0 +1,3 @@
+.protected_images img:not(.ignore-image-protection) {
+    pointer-events: none
+}
