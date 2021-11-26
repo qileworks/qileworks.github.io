@@ -1,0 +1,168 @@
+*{
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+    list-style: none;
+    color: #000;
+}
+.pc .nav {
+    background: #ffffff;
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    bottom: 0;
+    padding: 35px 35px 100px 35px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    color: #000;
+    font-size: 18px;
+    line-height: 1;
+    text-rendering: optimizeLegibility;
+    text-align: left;
+    width: 170px;
+    z-index: 999;
+}
+.pc .nav_header {
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    font-style: none;
+    font-weight: bold;
+    letter-spacing: 0px;
+    word-wrap: break-word;
+    z-index: 999;
+}
+.pc .nav_header img{
+    display: none;
+}
+.pc .nav_list{
+    margin-top: 1em;
+    padding-top: 60px;
+    font-size: 13px;
+    line-height: 1.4em;
+    z-index: 10;
+}
+.nav_list li {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.nav_list li a.active{
+    color: #0066ff;
+}
+.pc .container {
+    margin-left: 252px;
+    padding-top: 24px;
+    padding-right: 45px;
+    min-width: 275px;
+}
+.pc .container_box{
+    margin: 0 12px;
+    padding-top: 82px;
+    display: none;
+}
+.pc .painting_item{
+    margin-bottom: 20px;
+}
+.pc .painting_item img{
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto 20px;
+    display: block;
+}
+.pc .painting_item img:hover{
+    box-shadow:  0px 0px 18px #999;
+}
+.pc .painting_item div{
+    text-align: right;
+    font-size: 16px;
+}
+.pc .painting_item div p{
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+.pc .video_box{
+    display: block;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto 20px;
+}
+.pc .video_item{
+    font-size: 14px ;
+    margin: 0 auto 40px;
+    width: 80%;
+    max-width: 1200px;
+    min-width: 320px;
+}
+.pc .video_item div{
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: justify;
+}
+.mobile .nav {
+    background: #ffffff;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
+}
+.mobile{
+    font-size: 0.4rem;
+}
+.mobile .nav_header {
+    padding: 0 0.4rem;
+    font-family: Arial, sans-serif;
+    font-size: 0.4rem;
+    line-height:1rem;
+    font-style: none;
+    font-weight: bold;
+    letter-spacing: 0px;
+    word-wrap: break-word;
+    z-index: 999;
+    position: relative;
+}
+.mobile .nav_header img{
+    position: absolute;
+    width: 0.6rem;
+    right:0.4rem;
+    top: 0.2rem;
+}
+.mobile .nav_list{
+    padding: 0.2rem 0.4rem;
+    display: none;
+}
+.mobile .nav_list li {
+    line-height:1rem;
+}
+.mobile .container{
+    padding: 1.5rem 0.4rem 0.6rem;
+}
+.mobile .container_box{
+    display: none;
+}
+.mobile .painting_item{
+    margin-bottom: 0.4rem;
+}
+.mobile .painting_item img{
+    display: block;
+    max-width: 100%;
+    margin: 0 auto 0.2rem;
+}
+.mobile .painting_item div{
+    text-align: center;
+    font-size: 0.24rem;
+    color: #666;
+}
+.mobile .painting_item div p{
+    font-weight: 700;
+    font-size: 0.28rem;
+    margin-bottom: 0.12rem;
+}
+.mobile .video_box{
+    width: 100%;
+}
+.mobile .video_item div{
+    text-align: left;
+    font-size: 0.28rem;
+    color: #666;
+}

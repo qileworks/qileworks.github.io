@@ -6,95 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.js"></script>
     <title>LE QI</title>
-    <style>
-        *{
-            padding: 0;
-            margin: 0;
-            text-decoration: none;
-            list-style: none;
-            color: #000;
-        }
-        .nav {
-            background: #ffffff;
-            position: fixed;
-            top: 0px;
-            left: 0px;
-            bottom: 0;
-            padding: 35px 35px 100px 35px;
-            overflow-x: hidden;
-            overflow-y: auto;
-            color: #000;
-            font-size: 18px;
-            line-height: 1;
-            text-rendering: optimizeLegibility;
-            text-align: left;
-            width: 170px;
-            z-index: 999;
-        }
-        .nav_header {
-            font-family: Arial, sans-serif;
-            font-size: 13px;
-            font-style: none;
-            font-weight: bold;
-            letter-spacing: 0px;
-            word-wrap: break-word;
-            z-index: 999;
-        }
-        .nav_list{
-            margin-top: 1em;
-            padding-top: 60px;
-            font-size: 13px;
-            line-height: 1.4em;
-            z-index: 10;
-        }
-        .nav_list li {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .nav_list li a.active{
-            color: #0066ff;
-        }
-        .container {
-            margin-left: 252px;
-            padding-top: 24px;
-            padding-right: 45px;
-            min-width: 275px;
-        }
-        .container_box{
-            margin: 0 12px;
-            padding-top: 82px;
-            display: none;
-        }
-        .painting_item{
-            margin-bottom: 20px;
-        }
-        .painting_item img{
-            max-width: 100%;
-            height: auto;
-            margin: 0 auto 20px;
-            display: block;
-        }
-        .painting_item img:hover{
-            box-shadow:  0px 0px 18px #999;
-        }
-        .painting_item div{
-            text-align: right;
-        }
-        .painting_item div p{
-            font-weight: 700;
-        }
-    </style>
-    <script>
-        $(function(){
-            $('.nav_item a').click(function(){
-                $('.nav_item a').removeClass('active')
-                $(this).addClass('active')
-                $('.container_box').hide(0)
-                $('#'+$(this).attr('href').substr(1)).show(0)
-            })
-        })
-    </script>
+    <link rel="stylesheet" href="./css/index.css">
+    <script src="./js/index.js"></script>
 </head>
 <body>
     <div class="outer">
@@ -103,6 +16,7 @@
                 <a href="https://qileworks.github.io" rel="show_index">
                     LE QI
                 </a>
+                <img src="./img/more.png" alt="">
             </div>
             <ul class="nav_list">
                 <li class="nav_item">
@@ -190,6 +104,23 @@
                         </div>
                     </li>
                 </ul>
+            </div>
+            <div id="Sculpture" class="container_box">
+                <div class="video_item">
+                    <video class="video_box" controls>
+                        <source src="./video/vd.mov" type="video/mp4">
+                        <source src="./video/vd.mov" type="video/ogg">
+                        您的浏览器不支持Video标签。
+                    </video>
+                    <div>
+                        <br/>
+                        <br/>
+                        At the center of «The Teacher» stands a teacher figure, which is controlled by a student – performed by Soya Arakawa – laying on the floor, using his feet to control the figure by employing some quite formidable effort. The teacher is thus placed in a didactic frenzy, a kind of hectic dance that sometimes seems monstrous, sometimes seductive. His lessons are illustrated by large diagrams that fall to the floor in short intervals, in order to reveal something new over and over again. What the teacher presents sounds impressive and true but in fact, contradicts itself. The text, which is closely interwoven with Tobias Textor’s rapid percussion, consists of aphorisms that Scherer was partly told by authorities and partly wrote herself. Together, the texts analyse and demonstrate the rhetorical blueprint of so-called wisdoms and their manipulative potential.
+                        <br/>
+                        <br/>
+                        At the center of «The Teacher» stands a teacher figure, which is controlled by a student – performed by Soya Arakawa – laying on the floor, using his feet to control the figure by employing some quite formidable effort. The teacher is thus placed in a didactic frenzy, a kind of hectic dance that sometimes seems monstrous, sometimes seductive. His lessons are illustrated by large diagrams that fall to the floor in short intervals, in order to reveal something new over and over again. What the teacher presents sounds impressive and true but in fact, contradicts itself. The text, which is closely interwoven with Tobias Textor’s rapid percussion, consists of aphorisms that Scherer was partly told by authorities and partly wrote herself. Together, the texts analyse and demonstrate the rhetorical blueprint of so-called wisdoms and their manipulative potential.
+                    </div>
+                </div>
             </div>
         </div>
     </div>
