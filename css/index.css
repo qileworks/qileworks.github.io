@@ -63,13 +63,21 @@
 .pc .painting_item{
     margin-bottom: 20px;
 }
-.pc .painting_item img{
+.pc .painting_item>img{
     max-width: 100%;
     height: auto;
     margin: 0 auto 20px;
     display: block;
 }
-.pc .painting_item img:hover{
+.pc .painting_item .painting_img{
+    display: flex;
+    justify-content:space-between
+}
+.pc .painting_item .painting_img img{
+    width: 49.3%;
+    margin-bottom: 20px;
+}
+.pc .painting_item>img:hover{
     box-shadow:  0px 0px 18px #999;
 }
 .pc .painting_item div{
@@ -106,6 +114,34 @@
     top: 0;
     left: 0;
 }
+.pc .contact_box{
+    display: flex;
+    font-size: 16px;
+    flex-wrap: wrap;
+}
+.pc .contact_box .contact_img{
+    min-width: 400px;
+    margin-right: 40px;
+    flex: 1;
+}
+.contact_img img{
+    width: 100%;
+}
+.pc .contact_box .contact_text{
+    flex: 2;
+    min-width: 400px;
+}
+.pc .contact_box .contact_text p{
+    font-size: 30px;
+    font-weight: 700;
+    margin-bottom: 40px;
+}
+.pc .contact_box .contact_text div{
+    line-height: 30px;
+    color: #454545;
+    text-align: justify;
+}
+/* 移动端样式 */
 .mobile{
     font-size: 0.4rem;
 }
@@ -143,10 +179,18 @@
 .mobile .painting_item{
     margin-bottom: 0.4rem;
 }
-.mobile .painting_item img{
+.mobile .painting_item>img{
     display: block;
     max-width: 100%;
     margin: 0 auto 0.2rem;
+}
+.mobile .painting_item .painting_img{
+    display: flex;
+    justify-content:space-between
+}
+.mobile .painting_item .painting_img img{
+    width: 49.3%;
+    margin-bottom: 20px;
 }
 .mobile .painting_item div{
     text-align: center;
@@ -158,6 +202,15 @@
     font-size: 0.28rem;
     margin-bottom: 0.12rem;
 }
+.mobile .painting_item .painting_text{
+    font-size: 0.44rem;
+}
+.mobile .painting_item .painting_text p{
+    font-size: 0.44rem;
+}
+.mobile .painting_item .painting_text div{
+    font-size: 0.4rem;
+}
 .mobile .video_box{
     width: 100%;
 }
@@ -165,4 +218,19 @@
     text-align: left;
     font-size: 0.28rem;
     color: #666;
+}
+.mobile .contact_img img{
+    display: block;
+    width: 100%;
+    margin-bottom: 0.4rem
+}
+.mobile .contact_box .contact_text p{
+    font-size: 0.48rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+}
+.mobile .contact_box .contact_text div{
+    font-size: 0.24rem;
+    color: #454545;
+    text-align: justify;
 }
