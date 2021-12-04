@@ -85,6 +85,7 @@
     font-size: 16px;
 }
 .pc .painting_item div p{
+    font-family: "Noto Sans SC";
     font-weight: 700;
     font-size: 18px;
     margin-bottom: 10px;
@@ -141,6 +142,7 @@
     color: #454545;
     text-align: justify;
 }
+
 /* 移动端样式 */
 .mobile{
     font-size: 0.4rem;
